@@ -8,18 +8,18 @@
     <name>Official LESS CSS Compiler for Java</name>
     <description>Official LESS CSS Compiler for Java</description>
     <url>http://github.com/marceloverdijk/lesscss-java</url>
-    
+
     <parent>
         <groupId>org.sonatype.oss</groupId>
         <artifactId>oss-parent</artifactId>
         <version>7</version>
     </parent>
-    
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
-    
+
     <dependencies>
         <dependency>
             <groupId>commons-io</groupId>
@@ -44,8 +44,8 @@
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>  
-            <version>1.9.0</version> 
+            <artifactId>mockito-core</artifactId>
+            <version>1.9.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -65,6 +65,12 @@
             <artifactId>concurrentunit</artifactId>
             <version>0.3.0</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.testng</groupId>
+                    <artifactId>testng</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.mozilla</groupId>
@@ -72,7 +78,7 @@
             <version>1.7R4</version>
         </dependency>
     </dependencies>
-    
+
     <build>
         <plugins>
             <plugin>
@@ -143,16 +149,16 @@
                     </execution>
                 </executions>
                 <configuration>
-                        <signature>
-                            <groupId>org.codehaus.mojo.signature</groupId>
-                            <artifactId>java15</artifactId>
-                            <version>1.0</version>
-                        </signature>
+                    <signature>
+                        <groupId>org.codehaus.mojo.signature</groupId>
+                        <artifactId>java15</artifactId>
+                        <version>1.0</version>
+                    </signature>
                 </configuration>
-                </plugin>
+            </plugin>
         </plugins>
     </build>
-    
+
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
@@ -160,7 +166,7 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
-    
+
     <developers>
         <developer>
             <id>marceloverdijk</id>
@@ -182,16 +188,16 @@
             <timezone>-5</timezone>
         </developer>
     </developers>
-    
+
     <issueManagement>
         <system>GitHub</system>
         <url>http://github.com/marceloverdijk/lesscss-java/issues</url>
     </issueManagement>
-    
+
     <scm>
         <connection>scm:git:git@github.com:marceloverdijk/lesscss-java.git</connection>
         <developerConnection>scm:git:git@github.com:marceloverdijk/lesscss-java.git</developerConnection>
         <url>http://github.com/marceloverdijk/lesscss-java</url>
     </scm>
-    
+
 </project>
