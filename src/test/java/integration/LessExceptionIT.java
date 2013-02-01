@@ -32,7 +32,7 @@ public class LessExceptionIT extends AbstractCompileIT {
         catch (LessException e) {
             System.out.println("m:" + e.getMessage());
             assertTrue(e instanceof LessException);
-            assertEquals("variable @linkColor is undefined", e.getMessage());
+            assertEquals("variable @linkColor is undefined(line:1,column:11,index:11)", e.getMessage());
         }
     }
 }
