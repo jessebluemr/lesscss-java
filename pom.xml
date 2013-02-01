@@ -202,13 +202,26 @@
 
     <issueManagement>
         <system>GitHub</system>
-        <url>http://github.com/marceloverdijk/lesscss-java/issues</url>
+        <url>http://github.com/jessebluemr/lesscss-java/issues</url>
     </issueManagement>
 
     <scm>
-        <connection>scm:git:git@github.com:marceloverdijk/lesscss-java.git</connection>
-        <developerConnection>scm:git:git@github.com:marceloverdijk/lesscss-java.git</developerConnection>
-        <url>http://github.com/marceloverdijk/lesscss-java</url>
+        <connection>scm:git:git@github.com:jessebluemr/lesscss-java.git</connection>
+        <developerConnection>scm:git:git@github.com:jessebluemr/lesscss-java.git</developerConnection>
+        <url>http://github.com/jessebluemr/lesscss-java</url>
     </scm>
+
+    <distributionManagement>
+        <repository>
+            <id>ct-dist-releases-file</id>
+            <name>repository for sdi.suite releases</name>
+            <url>file://///vsdev0860.dev.esri-de.com/repo-internal/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>ct-dist-snapshots-file</id>
+            <name>repository for sdi.suite snapshots</name>
+            <url>file://///vsdev0860.dev.esri-de.com/repo-internal/snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
 
 </project>
