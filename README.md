@@ -1,3 +1,44 @@
+Fork Information
+===================================
+This fork, is optimized for use in the lesscss-maven-plugin:
+
+    https://github.com/marceloverdijk/lesscss-maven-plugin
+
+After you have build this project (mvn install), you can configure
+the following in your maven build:
+          
+          <plugin>
+               <groupId>org.lesscss</groupId>
+               <artifactId>lesscss-maven-plugin</artifactId>
+               <version>1.3.0</version>
+               <dependencies>
+                    <dependency>
+                            <groupId>org.lesscss</groupId>
+                            <artifactId>lesscss</artifactId>
+                            <version>1.3.3-v8</version>
+                    </dependency>
+               </dependencies>
+          </plugin>
+          
+The fork implements a simple approach for source content caching to reduce the amount of file reads if the file is imported as dependency in many files. 
+The main feature is the integration of the v8 engine (requires a 32bit jvm), for a very fast compile process (factor 10).
+
+The project depends on the jav8 project:
+
+    http://code.google.com/p/jav8/
+
+To build the project you need to install the precompiled lib in your local maven repository with following information:
+
+    http://code.google.com/p/jav8/downloads/detail?name=jav8-jsr223-win-x86-0.3.jar&can=2&q=
+
+    <dependency>
+      <!-- v8 engine -->
+      <groupId>lu.flier.script</groupId>
+      <artifactId>jav8-win32</artifactId>
+      <version>0.3</version>
+    </dependency>
+
+
 Official LESS CSS Compiler for Java
 ===================================
 
