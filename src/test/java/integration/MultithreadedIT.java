@@ -23,7 +23,7 @@ public class MultithreadedIT extends AbstractCompileIT {
 
     @Test
     public void testMultithreaded() throws Throwable {
-        final String[] filenames = new String[]{
+        String[] filenames = new String[]{
             "colors",
             "comments",
             "css-3",
@@ -40,15 +40,17 @@ public class MultithreadedIT extends AbstractCompileIT {
             "mixins-closure",
             "mixins-guards"
         };
-        final int ITERATIONS = 5;
+        filenames = new String[]{
+            "colors"
+        };
+        final int ITERATIONS = 2;
         for (int i = 0; i < ITERATIONS; i++) {
             for (final String filename : filenames) {
                 final int index = i;
                 new Thread(new Runnable() {
                     public void run() {
                         try {
-                            System.out.println("ITERATION: " + index + " - " + filename);
-                            testCompile(filename);
+                            testCompile(filename, index);
                             waiter.resume();
                         } catch (Throwable t) {
                             waiter.fail(t);
@@ -60,13 +62,15 @@ public class MultithreadedIT extends AbstractCompileIT {
         waiter.await(60 * 1000, ITERATIONS * filenames.length);
     }
 
-    private void testCompile(String filename) throws Exception {
-        testCompile(toFile("compatibility/less/" + filename + ".less"), toFile("compatibility/css/" + filename + ".css"));
+    private void testCompile(String filename, int index) throws Exception {
+        testCompile(toFile("compatibility/less/" + filename + ".less"), toFile("compatibility/css/" + filename + ".css"), index);
     }
 
-    protected void testCompile(File lessFile, File cssFile) throws Exception {
+    protected void testCompile(File lessFile, File cssFile, int index) throws Exception {
         String expected = FileUtils.readFileToString(cssFile);
+        System.out.println("ITERATION: " + index + " - " + lessFile + " start");
         String actual = lessCompiler.compile(lessFile);
+        System.out.println("ITERATION: " + index + " - " + lessFile + " finished");
         waiter.assertEquals(expected.replace("\r\n", "\n"), actual);
     }
 }

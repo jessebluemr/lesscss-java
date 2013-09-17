@@ -43,13 +43,13 @@ import org.mozilla.javascript.tools.shell.Global;
  * The compiler uses Rhino (JavaScript implementation written in Java), Envjs
  * (simulated browser environment written in JavaScript), and the official LESS
  * JavaScript compiler.<br />
- * Note that the compiler is not a Java implementation of LESS itself, but rather
- * integrates the LESS JavaScript compiler within a Java/JavaScript browser
- * environment provided by Rhino and Envjs.
+ * Note that the compiler is not a Java implementation of LESS itself, but
+ * rather integrates the LESS JavaScript compiler within a Java/JavaScript
+ * browser environment provided by Rhino and Envjs.
  * </p>
  * <p>
- * The compiler comes bundled with the Envjs and LESS JavaScript, so there is
- * no need to include them yourself. But if needed they can be overridden.
+ * The compiler comes bundled with the Envjs and LESS JavaScript, so there is no
+ * need to include them yourself. But if needed they can be overridden.
  * </p>
  * <h4>Basic code example:</h4>
  * <pre>
@@ -97,8 +97,8 @@ public class LessCompiler {
     }
 
     /**
-     * Sets the Envjs JavaScript file used by the compiler.
-     * Must be set before {@link #init()} is called.
+     * Sets the Envjs JavaScript file used by the compiler. Must be set before
+     * {@link #init()} is called.
      *
      * @param envJs The Envjs JavaScript file used by the compiler.
      */
@@ -110,8 +110,7 @@ public class LessCompiler {
     }
 
     /**
-     * Returns the LESS JavaScript file used by the compiler.
-     * COMPILE_STRING
+     * Returns the LESS JavaScript file used by the compiler. COMPILE_STRING
      *
      * @return The LESS JavaScript file used by the compiler.
      */
@@ -120,8 +119,8 @@ public class LessCompiler {
     }
 
     /**
-     * Sets the LESS JavaScript file used by the compiler.
-     * Must be set before {@link #init()} is called.
+     * Sets the LESS JavaScript file used by the compiler. Must be set before
+     * {@link #init()} is called.
      *
      * @param The LESS JavaScript file used by the compiler.
      */
@@ -142,8 +141,8 @@ public class LessCompiler {
     }
 
     /**
-     * Sets a single custom JavaScript file used by the compiler.
-     * Must be set before {@link #init()} is called.
+     * Sets a single custom JavaScript file used by the compiler. Must be set
+     * before {@link #init()} is called.
      *
      * @param customJs A single custom JavaScript file used by the compiler.
      */
@@ -155,8 +154,8 @@ public class LessCompiler {
     }
 
     /**
-     * Sets the custom JavaScript files used by the compiler.
-     * Must be set before {@link #init()} is called.
+     * Sets the custom JavaScript files used by the compiler. Must be set before
+     * {@link #init()} is called.
      *
      * @param customJs The custom JavaScript files used by the compiler.
      */
@@ -178,10 +177,11 @@ public class LessCompiler {
     }
 
     /**
-     * Sets the compiler to compress the CSS.
-     * Must be set before {@link #init()} is called.
+     * Sets the compiler to compress the CSS. Must be set before {@link #init()}
+     * is called.
      *
-     * @param compress If <code>true</code>, sets the compiler to compress the CSS.
+     * @param compress If <code>true</code>, sets the compiler to compress the
+     * CSS.
      */
     public synchronized void setCompress(boolean compress) {
         if (scope != null) {
@@ -191,10 +191,12 @@ public class LessCompiler {
     }
 
     /**
-     * Returns the character encoding used by the compiler when writing the output
+     * Returns the character encoding used by the compiler when writing the
+     * output
      * <code>File</code>.
      *
-     * @return The character encoding used by the compiler when writing the output <code>File</code>.
+     * @return The character encoding used by the compiler when writing the
+     * output <code>File</code>.
      */
     public String getEncoding() {
         return encoding;
@@ -202,11 +204,11 @@ public class LessCompiler {
 
     /**
      * Sets the character encoding used by the compiler when writing the output
-     * <code>File</code>.
-     * If not set the platform default will be used.
-     * Must be set before {@link #init()} is called.
+     * <code>File</code>. If not set the platform default will be used. Must be
+     * set before {@link #init()} is called.
      *
-     * @param The character encoding used by the compiler when writing the output <code>File</code>.
+     * @param The character encoding used by the compiler when writing the
+     * output <code>File</code>.
      */
     public synchronized void setEncoding(String encoding) {
         if (scope != null) {
@@ -219,7 +221,8 @@ public class LessCompiler {
      * Initializes this
      * <code>LessCompiler</code>.
      * <p>
-     * It is not needed to call this method manually, as it is called implicitly by the compile methods if needed.
+     * It is not needed to call this method manually, as it is called implicitly
+     * by the compile methods if needed.
      * </p>
      */
     public synchronized void init() {
@@ -309,14 +312,13 @@ public class LessCompiler {
      * @param input The LESS input <code>String</code> to compile.
      * @return The CSS.
      */
-    public String compile(String input) throws LessException {
+    public synchronized String compile(String input) throws LessException {
         if (input == null || input.length() == 0) {
             return "";
         }
-        synchronized (this) {
-            if (v8 == null && scope == null) {
-                init();
-            }
+
+        if ((v8 == null && scope == null) || v8 != null) {
+            init();
         }
 
         long start = System.currentTimeMillis();
@@ -385,7 +387,8 @@ public class LessCompiler {
      *
      * @param input The LESS input <code>File</code> to compile.
      * @param output The output <code>File</code> to write the CSS to.
-     * @throws IOException If the LESS file cannot be read or the output file cannot be written.
+     * @throws IOException If the LESS file cannot be read or the output file
+     * cannot be written.
      */
     public void compile(File input, File output) throws IOException, LessException {
         this.compile(input, output, true);
@@ -398,8 +401,11 @@ public class LessCompiler {
      *
      * @param input The LESS input <code>File</code> to compile.
      * @param output The output <code>File</code> to write the CSS to.
-     * @param force 'false' to only compile the LESS input file in case the LESS source has been modified (including imports) or the output file does not exists.
-     * @throws IOException If the LESS file cannot be read or the output file cannot be written.
+     * @param force 'false' to only compile the LESS input file in case the LESS
+     * source has been modified (including imports) or the output file does not
+     * exists.
+     * @throws IOException If the LESS file cannot be read or the output file
+     * cannot be written.
      */
     public void compile(File input, File output, boolean force) throws IOException, LessException {
         LessSource lessSource = new LessSource(input);
@@ -424,7 +430,8 @@ public class LessCompiler {
      *
      * @param input The input <code>LessSource</code> to compile.
      * @param output The output <code>File</code> to write the CSS to.
-     * @throws IOException If the LESS file cannot be read or the output file cannot be written.
+     * @throws IOException If the LESS file cannot be read or the output file
+     * cannot be written.
      */
     public void compile(LessSource input, File output) throws IOException, LessException {
         compile(input, output, true);
@@ -437,8 +444,11 @@ public class LessCompiler {
      *
      * @param input The input <code>LessSource</code> to compile.
      * @param output The output <code>File</code> to write the CSS to.
-     * @param force 'false' to only compile the input <code>LessSource</code> in case the LESS source has been modified (including imports) or the output file does not exists.
-     * @throws IOException If the LESS file cannot be read or the output file cannot be written.
+     * @param force 'false' to only compile the input <code>LessSource</code> in
+     * case the LESS source has been modified (including imports) or the output
+     * file does not exists.
+     * @throws IOException If the LESS file cannot be read or the output file
+     * cannot be written.
      */
     public void compile(LessSource input, File output, boolean force) throws IOException, LessException {
         if (force || !output.exists() || output.lastModified() < input.getLastModifiedIncludingImports()) {
