@@ -14,10 +14,12 @@
  */
 package org.lesscss;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -34,41 +36,56 @@ import org.apache.commons.io.IOUtils;
 public class LessSource {
 
     /**
-     * The <code>Pattern</code> used to match imported files.
+     * The
+     * <code>Pattern</code> used to match imported files.
      */
     private static final Pattern IMPORT_PATTERN = Pattern.compile("^(?!\\s*//\\s*).*(@import\\s+(?:url\\(|\\((less|css)\\))?\\s*(?:\"|')(.+)\\s*(?:\"|')\\)?\\s*;).*$", MULTILINE);
-
     private Resource resource;
     private String content;
     private String normalizedContent;
     private Map<String, LessSource> imports = new LinkedHashMap<String, LessSource>();
 
     /**
-     * Constructs a new <code>LessSource</code>.
-     * <p>
-     * This will read the metadata and content of the LESS source, and will automatically resolve the imports.
-     * </p>
-     * <p>
-     * The resource is read using the default Charset of the platform
-     * </p>
-     *
-     * @param resource The <code>File</code> reference to the LESS source to read.
-     * @throws FileNotFoundException If the LESS source (or one of its imports) could not be found.
-     * @throws IOException If the LESS source cannot be read.
+     * backwards compartibility to use in "old" maven plugins.
      */
-    public LessSource(Resource resource) throws FileNotFoundException, IOException {
-        this(resource, Charset.defaultCharset());
+    public LessSource(File resource) throws FileNotFoundException, IOException {
+        this(new FileResource(resource));
     }
 
     /**
-     * Constructs a new <code>LessSource</code>.
+     * Constructs a new
+     * <code>LessSource</code>.
      * <p>
-     * This will read the metadata and content of the LESS resource, and will automatically resolve the imports.
+     * This will read the metadata and content of the LESS source, and will
+     * automatically resolve the imports.
+     * </p>
+     * <p>
+     * The resource is read using the default utf-8 charset.
      * </p>
      *
-     * @param resource The <code>File</code> reference to the LESS resource to read.
+     * @param resource The <code>File</code> reference to the LESS source to
+     * read.
+     * @throws FileNotFoundException If the LESS source (or one of its imports)
+     * could not be found.
+     * @throws IOException If the LESS source cannot be read.
+     */
+    public LessSource(Resource resource) throws FileNotFoundException, IOException {
+        this(resource, Charset.forName("UTF-8"));
+    }
+
+    /**
+     * Constructs a new
+     * <code>LessSource</code>.
+     * <p>
+     * This will read the metadata and content of the LESS resource, and will
+     * automatically resolve the imports.
+     * </p>
+     *
+     * @param resource The <code>File</code> reference to the LESS resource to
+     * read.
      * @param charset charset used to read the less resource.
-     * @throws FileNotFoundException If the LESS resource (or one of its imports) could not be found.
+     * @throws FileNotFoundException If the LESS resource (or one of its
+     * imports) could not be found.
      * @throws IOException If the LESS resource cannot be read.
      */
     public LessSource(Resource resource, Charset charset) throws IOException {
@@ -82,15 +99,22 @@ public class LessSource {
         this.content = this.normalizedContent = loadResource(resource, charset);
         resolveImports();
     }
+    private static final Map<String, String> CACHE = new HashMap<String, String>();
 
     private String loadResource(Resource resource, Charset charset) throws IOException {
+        String key = Integer.valueOf(resource.hashCode()) + "-" + charset.name();
+        String content = CACHE.get(key);
+        if (content != null) {
+            return content;
+        }
         InputStream inputStream = null;
         try {
             inputStream = resource.getInputStream();
-            return IOUtils.toString(inputStream, charset.name());
-        }
-        finally {
-            if (inputStream!=null){
+            content = IOUtils.toString(inputStream, charset.name());
+            CACHE.put(key, content);
+            return content;
+        } finally {
+            if (inputStream != null) {
                 inputStream.close();
             }
         }
@@ -131,16 +155,21 @@ public class LessSource {
     /**
      * Returns the time that the LESS source was last modified.
      *
-     * @return A <code>long</code> value representing the time the resource was last modified, measured in milliseconds since the epoch (00:00:00 GMT, January 1, 1970).
+     * @return A <code>long</code> value representing the time the resource was
+     * last modified, measured in milliseconds since the epoch (00:00:00 GMT,
+     * January 1, 1970).
      */
     public long getLastModified() {
         return resource.lastModified();
     }
 
     /**
-     * Returns the time that the LESS source, or one of its imports, was last modified.
+     * Returns the time that the LESS source, or one of its imports, was last
+     * modified.
      *
-     * @return A <code>long</code> value representing the time the resource was last modified, measured in milliseconds since the epoch (00:00:00 GMT, January 1, 1970).
+     * @return A <code>long</code> value representing the time the resource was
+     * last modified, measured in milliseconds since the epoch (00:00:00 GMT,
+     * January 1, 1970).
      */
     public long getLastModifiedIncludingImports() {
         long lastModified = getLastModified();
@@ -158,7 +187,8 @@ public class LessSource {
      * Returns the LESS sources imported by this LESS source.
      * <p>
      * The returned imports are represented by a
-     * <code>Map&lt;String, LessSource&gt;</code> which contains the filename and the
+     * <code>Map&lt;String, LessSource&gt;</code> which contains the filename
+     * and the
      * <code>LessSource</code>.
      * </p>
      *
@@ -173,30 +203,14 @@ public class LessSource {
         while (importMatcher.find()) {
             String importedResource = importMatcher.group(3);
             importedResource = importedResource.matches(".*\\.(le?|c)ss$") ? importedResource : importedResource + ".less";
-            String importType = importMatcher.group(2)==null ? "less" : importMatcher.group(2);
+            String importType = importMatcher.group(2) == null ? "less" : importMatcher.group(2);
             boolean less = importedResource.matches(".*\\.less$");
             if (importType.equals("less") || less) {
-                    LessSource importedLessSource = new LessSource(resource.createRelative(importedResource));
-                    imports.put(importedResource, importedLessSource);
-                    normalizedContent = normalizedContent.substring(0, importMatcher.start(1)) + importedLessSource.getNormalizedContent() + normalizedContent.substring(importMatcher.end(1));
-                    importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
+                LessSource importedLessSource = new LessSource(resource.createRelative(importedResource));
+                imports.put(importedResource, importedLessSource);
+                normalizedContent = normalizedContent.substring(0, importMatcher.start(1)) + importedLessSource.getNormalizedContent() + normalizedContent.substring(importMatcher.end(1));
+                importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
             }
         }
     }
-    
-    /*
-    private static final Map<String, String> CACHE = new HashMap<String, String>();
-
-    private static synchronized String getContent(File f) throws IOException {
-        String key = f.getAbsolutePath();
-        String c = null;
-        if (key != null) {
-            c = CACHE.get(key);
-}
-        if (c == null) {
-            c = FileUtils.readFileToString(f);
-            CACHE.put(key, c);
-        }
-        return c;
-    }*/
 }
