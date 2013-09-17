@@ -203,7 +203,7 @@ public class LessSource {
         while (importMatcher.find()) {
             String importedResource = importMatcher.group(3);
             importedResource = importedResource.matches(".*\\.(le?|c)ss$") ? importedResource : importedResource + ".less";
-            String importType = importMatcher.group(2) == null ? "less" : importMatcher.group(2);
+            String importType = importMatcher.group(2) == null ? "url" : importMatcher.group(2);
             boolean less = importedResource.matches(".*\\.less$");
             if (importType.equals("less") || less) {
                 LessSource importedLessSource = new LessSource(resource.createRelative(importedResource));
