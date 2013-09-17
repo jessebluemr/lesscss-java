@@ -9,11 +9,11 @@
     <description>Official LESS CSS Compiler for Java</description>
     <url>http://github.com/marceloverdijk/lesscss-java</url>
     
-    <parent>
+    <!--<parent>
         <groupId>org.sonatype.oss</groupId>
         <artifactId>oss-parent</artifactId>
         <version>7</version>
-    </parent>
+    </parent>-->
     
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -168,7 +168,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <!--<plugin>
+            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>animal-sniffer-maven-plugin</artifactId>
                 <version>1.8</version>
@@ -187,7 +187,7 @@
                         <version>1.0</version>
                     </signature>
                 </configuration>
-            </plugin>-->
+            </plugin>
         </plugins>
     </build>
     
