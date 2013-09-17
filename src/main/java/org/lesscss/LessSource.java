@@ -14,16 +14,17 @@
  */
 package org.lesscss;
 
-import static java.util.regex.Pattern.MULTILINE;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.HashMap;
+import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.commons.io.FileUtils;
+import static java.util.regex.Pattern.MULTILINE;
+
+import org.apache.commons.io.IOUtils;
 
 /**
  * Represents the metadata and content of a LESS source.
@@ -33,36 +34,66 @@ import org.apache.commons.io.FileUtils;
 public class LessSource {
 
     /**
-     * The
-     * <code>Pattern</code> used to match imported files.
+     * The <code>Pattern</code> used to match imported files.
      */
-    private static final Pattern IMPORT_PATTERN = Pattern.compile("^(?!\\s*//\\s*)@import\\s+(url\\()?\\s*\"(.+)\\s*\"(\\))?\\s*;.*$", MULTILINE);
-    private File file;
+    private static final Pattern IMPORT_PATTERN = Pattern.compile("^(?!\\s*//\\s*).*(@import\\s+(?:url\\(|\\((less|css)\\))?\\s*(?:\"|')(.+)\\s*(?:\"|')\\)?\\s*;).*$", MULTILINE);
+
+    private Resource resource;
     private String content;
     private String normalizedContent;
     private Map<String, LessSource> imports = new LinkedHashMap<String, LessSource>();
 
     /**
-     * Constructs a new
-     * <code>LessSource</code>.
+     * Constructs a new <code>LessSource</code>.
      * <p>
      * This will read the metadata and content of the LESS source, and will automatically resolve the imports.
      * </p>
+     * <p>
+     * The resource is read using the default Charset of the platform
+     * </p>
      *
-     * @param file The <code>File</code> reference to the LESS source to read.
+     * @param resource The <code>File</code> reference to the LESS source to read.
      * @throws FileNotFoundException If the LESS source (or one of its imports) could not be found.
      * @throws IOException If the LESS source cannot be read.
      */
-    public LessSource(File file) throws FileNotFoundException, IOException {
-        if (file == null) {
-            throw new IllegalArgumentException("File must not be null.");
+    public LessSource(Resource resource) throws FileNotFoundException, IOException {
+        this(resource, Charset.defaultCharset());
+    }
+
+    /**
+     * Constructs a new <code>LessSource</code>.
+     * <p>
+     * This will read the metadata and content of the LESS resource, and will automatically resolve the imports.
+     * </p>
+     *
+     * @param resource The <code>File</code> reference to the LESS resource to read.
+     * @param charset charset used to read the less resource.
+     * @throws FileNotFoundException If the LESS resource (or one of its imports) could not be found.
+     * @throws IOException If the LESS resource cannot be read.
+     */
+    public LessSource(Resource resource, Charset charset) throws IOException {
+        if (resource == null) {
+            throw new IllegalArgumentException("Resource must not be null.");
         }
-        if (!file.exists()) {
-            throw new FileNotFoundException("File " + file.getAbsolutePath() + " not found.");
+        if (!resource.exists()) {
+            throw new IOException("Resource " + resource + " not found.");
         }
-        this.file = file;
-        this.content = this.normalizedContent = getContent(file);
+        this.resource = resource;
+        this.content = this.normalizedContent = loadResource(resource, charset);
         resolveImports();
+    }
+
+    private String loadResource(Resource resource, Charset charset) throws IOException {
+        InputStream inputStream = null;
+        try {
+            inputStream = resource.getInputStream();
+            return IOUtils.toString(inputStream, charset.name());
+        }
+        finally {
+            if (inputStream!=null){
+                inputStream.close();
+            }
+        }
     }
 
     /**
@@ -71,7 +102,7 @@ public class LessSource {
      * @return The absolute pathname of the LESS source.
      */
     public String getAbsolutePath() {
-        return file.getAbsolutePath();
+        return resource.toString();
     }
 
     /**
@@ -100,16 +131,16 @@ public class LessSource {
     /**
      * Returns the time that the LESS source was last modified.
      *
-     * @return A <code>long</code> value representing the time the file was last modified, measured in milliseconds since the epoch (00:00:00 GMT, January 1, 1970).
+     * @return A <code>long</code> value representing the time the resource was last modified, measured in milliseconds since the epoch (00:00:00 GMT, January 1, 1970).
      */
     public long getLastModified() {
-        return file.lastModified();
+        return resource.lastModified();
     }
 
     /**
      * Returns the time that the LESS source, or one of its imports, was last modified.
      *
-     * @return A <code>long</code> value representing the time the file was last modified, measured in milliseconds since the epoch (00:00:00 GMT, January 1, 1970).
+     * @return A <code>long</code> value representing the time the resource was last modified, measured in milliseconds since the epoch (00:00:00 GMT, January 1, 1970).
      */
     public long getLastModifiedIncludingImports() {
         long lastModified = getLastModified();
@@ -140,17 +171,20 @@ public class LessSource {
     private void resolveImports() throws FileNotFoundException, IOException {
         Matcher importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
         while (importMatcher.find()) {
-            String importedFile = importMatcher.group(2);
-            importedFile = importedFile.matches(".*\\.(le?|c)ss$") ? importedFile : importedFile + ".less";
-            boolean css = importedFile.matches(".*css$");
-            if (!css) {
-                LessSource importedLessSource = new LessSource(new File(file.getParentFile(), importedFile));
-                imports.put(importedFile, importedLessSource);
-                normalizedContent = normalizedContent.substring(0, importMatcher.start()) + importedLessSource.getNormalizedContent() + normalizedContent.substring(importMatcher.end());
-                importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
+            String importedResource = importMatcher.group(3);
+            importedResource = importedResource.matches(".*\\.(le?|c)ss$") ? importedResource : importedResource + ".less";
+            String importType = importMatcher.group(2)==null ? "less" : importMatcher.group(2);
+            boolean less = importedResource.matches(".*\\.less$");
+            if (importType.equals("less") || less) {
+                    LessSource importedLessSource = new LessSource(resource.createRelative(importedResource));
+                    imports.put(importedResource, importedLessSource);
+                    normalizedContent = normalizedContent.substring(0, importMatcher.start(1)) + importedLessSource.getNormalizedContent() + normalizedContent.substring(importMatcher.end(1));
+                    importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
             }
         }
     }
+    
+    /*
     private static final Map<String, String> CACHE = new HashMap<String, String>();
 
     private static synchronized String getContent(File f) throws IOException {
@@ -158,11 +192,11 @@ public class LessSource {
         String c = null;
         if (key != null) {
             c = CACHE.get(key);
-        }
+}
         if (c == null) {
             c = FileUtils.readFileToString(f);
             CACHE.put(key, c);
         }
         return c;
-    }
+    }*/
 }

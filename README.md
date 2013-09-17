@@ -42,6 +42,10 @@ To build the project you need to install the precompiled lib in your local maven
 Official LESS CSS Compiler for Java
 ===================================
 
+**Latest release**  1.3.3 - compatible with less 1.3.3
+
+
+
 LESS CSS Compiler for Java is a library to compile LESS sources to CSS stylesheets.
 
 This fork, is optimized for static maven builds, using source file caching and and integrates the v8 engine(requires a 32bit jvm), for a very fast compile process.
@@ -82,9 +86,9 @@ Non-Maven users should download the latest version and add it to the project's c
 
 + <a href="http://commons.apache.org/io/">Apache Commons IO 2.4</a>
 + <a href="http://commons.apache.org/lang/">Apache Commons Lang 3.1</a>
-+ <a href="http://commons.apache.org/logging/">Apache Commons Logging 1.1.1</a>
 + <a href="http://www.mozilla.org/rhino/">Rhino: JavaScript for Java 1.7R4</a>
 
+If [SLF4J](http://www.slf4j.org/) is present in the classpath, it will be used for logging.
 
 Compatibility
 -------------
@@ -128,6 +132,10 @@ Authors
 
 + candrews@integralblue.com
 + http://candrews.integralblue.com
+
+**Christophe Popov**
++ http://twitter.com/chpopov
++ http://uk.linkedin.com/in/hpopov/
 
 Copyright and License
 ---------------------

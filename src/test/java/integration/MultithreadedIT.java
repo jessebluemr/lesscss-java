@@ -6,6 +6,7 @@ import java.util.Arrays;
 import org.apache.commons.io.FileUtils;
 import org.jodah.concurrentunit.Waiter;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class MultithreadedIT extends AbstractCompileIT {
@@ -22,6 +23,7 @@ public class MultithreadedIT extends AbstractCompileIT {
     }
 
     @Test
+    @Ignore
     public void testMultithreaded() throws Throwable {
         String[] filenames = new String[]{
             "colors",
