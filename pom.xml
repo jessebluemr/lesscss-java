@@ -21,11 +21,18 @@
     </properties>
     
     <dependencies>
-        <dependency>
-            <!-- v8 engine -->
+        <!-- v8 engine 32bit
+            <dependency>
             <groupId>lu.flier.script</groupId>
             <artifactId>jav8-win32</artifactId>
             <version>0.4</version>
+        </dependency>-->
+        <dependency>
+            <!-- v8 engine 64bit -->
+            <groupId>lu.flier.script</groupId>
+            <artifactId>jav8-win64</artifactId>
+            <version>0.6</version>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>javax.script</groupId>
@@ -83,6 +90,13 @@
             <artifactId>rhino</artifactId>
             <version>1.7R4</version>
         </dependency>
+        <!--<dependency>
+            <groupId>org.dynjs</groupId>
+            <artifactId>dynjs</artifactId>
+            <version>0.1.1</version>
+            <scope>compile</scope>
+            <optional>true</optional>
+        </dependency>-->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -167,13 +181,13 @@
                     </execution>
                 </executions>
                 <configuration>
-                        <signature>
-                            <groupId>org.codehaus.mojo.signature</groupId>
-                            <artifactId>java15</artifactId>
-                            <version>1.0</version>
-                        </signature>
+                    <signature>
+                        <groupId>org.codehaus.mojo.signature</groupId>
+                        <artifactId>java15</artifactId>
+                        <version>1.0</version>
+                    </signature>
                 </configuration>
-                </plugin>
+            </plugin>
         </plugins>
     </build>
     
