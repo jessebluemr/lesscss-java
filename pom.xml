@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.lesscss</groupId>
     <artifactId>lesscss</artifactId>
-    <version>1.6.3-v8</version>
+    <version>1.6.3-v8-1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>Official LESS CSS Compiler for Java</name>
     <description>Official LESS CSS Compiler for Java</description>
@@ -252,7 +252,7 @@
         <connection>scm:git:git@github.com:jessebluemr/lesscss-java.git</connection>
         <developerConnection>scm:git:git@github.com:jessebluemr/lesscss-java.git</developerConnection>
         <url>http://github.com/jessebluemr/lesscss-java</url>
-      <tag>lesscss-1.6.3-v8</tag>
+      <tag>HEAD</tag>
   </scm>
     
     <distributionManagement>
