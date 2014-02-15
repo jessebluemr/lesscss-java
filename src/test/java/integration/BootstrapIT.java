@@ -15,6 +15,7 @@
 package integration;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class BootstrapIT extends AbstractCompileIT {
@@ -27,11 +28,13 @@ public class BootstrapIT extends AbstractCompileIT {
 	}
 
 	@Test
+        @Ignore
 	public void testBootstrap() throws Exception {
 		testCompile("bootstrap");
 	}
 
 	@Test
+        @Ignore
 	public void testBootstrapMin() throws Exception {
 		testCompile("bootstrap", "bootstrap.min", true);
 	}
