@@ -29,12 +29,6 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-/*import org.dynjs.Config;
-import org.dynjs.SystemClock;
-import org.dynjs.runtime.DynJS;
-import org.dynjs.runtime.ExecutionContext;
-import org.dynjs.runtime.JSFunction;
-import org.dynjs.runtime.Reference;*/
 import org.lesscss.logging.LessLogger;
 import org.lesscss.logging.LessLoggerFactory;
 import org.mozilla.javascript.Context;
@@ -85,7 +79,6 @@ public class LessCompiler {
     private Scriptable scope;
     private URL envV8Js = LessCompiler.class.getClassLoader().getResource("META-INF/env.v8.js");
     private ScriptEngine v8;
-    //private DynJS dynjs;
 
     /**
      * Constructs a new
@@ -241,13 +234,7 @@ public class LessCompiler {
             }
             return;
         }
-        if (false /*&& initDynJs()*/) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Finished initialization of LESS compiler in " + (System.currentTimeMillis() - start) + " ms.");
-            }
-            return;
-        }
-
+        
         try {
             Context cx = Context.enter();
             cx.setOptimizationLevel(-1);
@@ -315,36 +302,6 @@ public class LessCompiler {
         return true;
     }
 
-    /*
-    private boolean initDynJs() {
-        Config config = new Config();
-        config.setDebug(false);
-        //config.setClock(SystemClock.INSTANCE);
-        //config.setTimeZone(TimeZone.getTimeZone("America/Sao_Paulo"));
-        //config.setLocale(Locale.US);
-        DynJS runtime = new DynJS(config);
-
-        try {
-            List<URL> jsUrls = new ArrayList<URL>(2 + customJs.size());
-            //jsUrls.add(envV8Js);
-            jsUrls.add(envV8Js);
-            jsUrls.add(lessJs);
-            jsUrls.addAll(customJs);
-            for (URL url : jsUrls) {
-                String fileContent = IOUtils.toString(url.openStream(), Charset.forName("UTF-8"));
-                runtime.evaluate(fileContent);
-            }
-            runtime.evaluate(COMPILE_STRING);
-        } catch (Exception e) {
-            String message = "Failed to initialize LESS (dynjs based) compiler.";
-            logger.error(message, e);
-            return false;
-        }
-        this.dynjs = runtime;
-        logger.info("successfull init dynjs engine!");
-        return true;
-    }*/
-
     /**
      * Compiles the LESS input
      * <code>String</code> to CSS.
@@ -374,12 +331,7 @@ public class LessCompiler {
                 if (css.startsWith(errorPrefix)) {
                     throw new IllegalStateException(css.substring(errorPrefix.length()));
                 }
-            }/* else if (dynjs != null) {
-                ExecutionContext context = dynjs.getExecutionContext();
-                Reference doItRef = context.resolve("doItSave");
-                JSFunction doItSave = (JSFunction) doItRef.getValue(context);
-                result = context.call(doItRef, doItSave, (Object) null, input, compress);
-            }*/ else {
+            } else {
                 // rhino
                 cx = Context.enter();
                 result = doIt.call(cx, scope, null, new Object[]{input, compress});
