@@ -15,7 +15,6 @@
 package integration;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class BootstrapIT extends AbstractCompileIT {
@@ -28,25 +27,13 @@ public class BootstrapIT extends AbstractCompileIT {
 	}
 
 	@Test
-        @Ignore
 	public void testBootstrap() throws Exception {
 		testCompile("bootstrap");
 	}
 
 	@Test
-        @Ignore
 	public void testBootstrapMin() throws Exception {
 		testCompile("bootstrap", "bootstrap.min", true);
-	}
-
-	@Test
-	public void testResponsive() throws Exception {
-		testCompile("responsive", "bootstrap-responsive");
-	}
-
-	@Test
-	public void testResponsiveMin() throws Exception {
-		testCompile("responsive", "bootstrap-responsive.min", true);
 	}
 
 	private void testCompile(String filename) throws Exception {
@@ -58,6 +45,6 @@ public class BootstrapIT extends AbstractCompileIT {
 	}
 
 	private void testCompile(String lessFilename, String cssFilename, boolean compress) throws Exception {
-		testCompile(toFile("bootstrap/less/" + lessFilename + ".less"), toFile("bootstrap/css/" + cssFilename + ".css"), compress);
+		testCompile(toFile("bootstrap-3.1.1/less/" + lessFilename + ".less"), toFile("bootstrap-3.1.1/css/" + cssFilename + ".css"), compress);
 	}
 }

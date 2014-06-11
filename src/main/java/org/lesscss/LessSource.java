@@ -17,9 +17,8 @@ package org.lesscss;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -27,6 +26,9 @@ import java.util.regex.Pattern;
 import static java.util.regex.Pattern.MULTILINE;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.BOMInputStream;
+import org.lesscss.logging.LessLogger;
+import org.lesscss.logging.LessLoggerFactory;
 
 /**
  * Represents the metadata and content of a LESS source.
@@ -35,57 +37,44 @@ import org.apache.commons.io.IOUtils;
  */
 public class LessSource {
 
+    private static LessLogger logger = LessLoggerFactory.getLogger( LessSource.class );
+
     /**
-     * The
-     * <code>Pattern</code> used to match imported files.
+     * The <code>Pattern</code> used to match imported files.
      */
-    private static final Pattern IMPORT_PATTERN = Pattern.compile("^(?!\\s*//\\s*).*(@import\\s+(?:url\\(|\\((less|css)\\))?\\s*(?:\"|')(.+)\\s*(?:\"|')\\)?\\s*;).*$", MULTILINE);
+    private static final Pattern IMPORT_PATTERN = Pattern.compile("^(?!\\s*//\\s*).*(@import\\s+(url\\(|\\((less|css)\\))?\\s*(\"|')(.+)\\s*(\"|')(\\))?(.*);).*$", MULTILINE);
+
     private Resource resource;
     private String content;
     private String normalizedContent;
     private Map<String, LessSource> imports = new LinkedHashMap<String, LessSource>();
 
     /**
-     * backwards compartibility to use in "old" maven plugins.
-     */
-    public LessSource(File resource) throws FileNotFoundException, IOException {
-        this(new FileResource(resource));
-    }
-
-    /**
-     * Constructs a new
-     * <code>LessSource</code>.
+     * Constructs a new <code>LessSource</code>.
      * <p>
-     * This will read the metadata and content of the LESS source, and will
-     * automatically resolve the imports.
+     * This will read the metadata and content of the LESS source, and will automatically resolve the imports.
      * </p>
      * <p>
-     * The resource is read using the default utf-8 charset.
+     * The resource is read using the default Charset of the platform
      * </p>
      *
-     * @param resource The <code>File</code> reference to the LESS source to
-     * read.
-     * @throws FileNotFoundException If the LESS source (or one of its imports)
-     * could not be found.
+     * @param resource The <code>File</code> reference to the LESS source to read.
+     * @throws FileNotFoundException If the LESS source (or one of its imports) could not be found.
      * @throws IOException If the LESS source cannot be read.
      */
-    public LessSource(Resource resource) throws FileNotFoundException, IOException {
-        this(resource, Charset.forName("UTF-8"));
+    public LessSource(Resource resource) throws IOException {
+        this(resource, Charset.defaultCharset());
     }
 
     /**
-     * Constructs a new
-     * <code>LessSource</code>.
+     * Constructs a new <code>LessSource</code>.
      * <p>
-     * This will read the metadata and content of the LESS resource, and will
-     * automatically resolve the imports.
+     * This will read the metadata and content of the LESS resource, and will automatically resolve the imports.
      * </p>
      *
-     * @param resource The <code>File</code> reference to the LESS resource to
-     * read.
+     * @param resource The <code>File</code> reference to the LESS resource to read.
      * @param charset charset used to read the less resource.
-     * @throws FileNotFoundException If the LESS resource (or one of its
-     * imports) could not be found.
+     * @throws FileNotFoundException If the LESS resource (or one of its imports) could not be found.
      * @throws IOException If the LESS resource cannot be read.
      */
     public LessSource(Resource resource, Charset charset) throws IOException {
@@ -99,24 +88,32 @@ public class LessSource {
         this.content = this.normalizedContent = loadResource(resource, charset);
         resolveImports();
     }
-    private static final Map<String, String> CACHE = new HashMap<String, String>();
+
+    /**
+     * Simple helper method to handle simple files.  This delegates
+     * to @see #LessSource(Resource) .
+     *
+     * @param input a File to use as input.
+     *
+     * @throws IOException
+     */
+    public LessSource(File input) throws IOException {
+        this( new FileResource(input) );
+    }
 
     private String loadResource(Resource resource, Charset charset) throws IOException {
-        String key = Integer.valueOf(resource.hashCode()) + "-" + charset.name();
-        String content = CACHE.get(key);
-        if (content != null) {
-            return content;
-        }
-        InputStream inputStream = null;
+        BOMInputStream inputStream = new BOMInputStream( resource.getInputStream() );
         try {
-            inputStream = resource.getInputStream();
-            content = IOUtils.toString(inputStream, charset.name());
-            CACHE.put(key, content);
-            return content;
-        } finally {
-            if (inputStream != null) {
-                inputStream.close();
+            if( inputStream.hasBOM() ) {
+                logger.debug("BOM found %s", inputStream.getBOMCharsetName());
+                return IOUtils.toString(inputStream, inputStream.getBOMCharsetName());
+            } else {
+                logger.debug("Using charset " + charset.name());
+                return IOUtils.toString(inputStream, charset.name());
             }
+        }
+        finally {
+            inputStream.close();
         }
     }
 
@@ -155,21 +152,16 @@ public class LessSource {
     /**
      * Returns the time that the LESS source was last modified.
      *
-     * @return A <code>long</code> value representing the time the resource was
-     * last modified, measured in milliseconds since the epoch (00:00:00 GMT,
-     * January 1, 1970).
+     * @return A <code>long</code> value representing the time the resource was last modified, measured in milliseconds since the epoch (00:00:00 GMT, January 1, 1970).
      */
     public long getLastModified() {
         return resource.lastModified();
     }
 
     /**
-     * Returns the time that the LESS source, or one of its imports, was last
-     * modified.
+     * Returns the time that the LESS source, or one of its imports, was last modified.
      *
-     * @return A <code>long</code> value representing the time the resource was
-     * last modified, measured in milliseconds since the epoch (00:00:00 GMT,
-     * January 1, 1970).
+     * @return A <code>long</code> value representing the time the resource was last modified, measured in milliseconds since the epoch (00:00:00 GMT, January 1, 1970).
      */
     public long getLastModifiedIncludingImports() {
         long lastModified = getLastModified();
@@ -187,8 +179,7 @@ public class LessSource {
      * Returns the LESS sources imported by this LESS source.
      * <p>
      * The returned imports are represented by a
-     * <code>Map&lt;String, LessSource&gt;</code> which contains the filename
-     * and the
+     * <code>Map&lt;String, LessSource&gt;</code> which contains the filename and the
      * <code>LessSource</code>.
      * </p>
      *
@@ -198,19 +189,60 @@ public class LessSource {
         return imports;
     }
 
-    private void resolveImports() throws FileNotFoundException, IOException {
+    private void resolveImports() throws IOException {
         Matcher importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
         while (importMatcher.find()) {
-            String importedResource = importMatcher.group(3);
+            String importedResource = importMatcher.group(5);
             importedResource = importedResource.matches(".*\\.(le?|c)ss$") ? importedResource : importedResource + ".less";
-            String importType = importMatcher.group(2) == null ? "url" : importMatcher.group(2);
-            boolean less = importedResource.matches(".*\\.less$");
-            if (importType.equals("less") || less) {
-                LessSource importedLessSource = new LessSource(resource.createRelative(importedResource));
-                imports.put(importedResource, importedLessSource);
-                normalizedContent = normalizedContent.substring(0, importMatcher.start(1)) + importedLessSource.getNormalizedContent() + normalizedContent.substring(importMatcher.end(1));
-                importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
+            String importType = importMatcher.group(3)==null ? importedResource.substring(importedResource.lastIndexOf(".") + 1) : importMatcher.group(3);
+            if (importType.equals("less")) {
+                logger.debug("Importing %s", importedResource);
+
+                if( !imports.containsKey(importedResource) ) {
+                    LessSource importedLessSource = new LessSource(getImportedResource(importedResource));
+                    imports.put(importedResource, importedLessSource);
+
+                    normalizedContent = includeImportedContent(importedLessSource, importMatcher);
+                    importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
+                } else {
+                    normalizedContent = normalizedContent.substring(0, importMatcher.start(1)) + normalizedContent.substring(importMatcher.end(1));
+                    importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
+                }
             }
         }
+    }
+
+    private Resource getImportedResource(String importedResource) throws IOException {
+        try {
+            if( importedResource.startsWith("http:") || importedResource.startsWith("https:") ) {
+                return new HttpResource(importedResource);
+            } else {
+                return resource.createRelative(importedResource);
+            }
+        } catch (URISyntaxException e) {
+            throw (IOException)new IOException( importedResource ).initCause(e);
+        }
+    }
+
+    private String includeImportedContent(LessSource importedLessSource, Matcher importMatcher) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(normalizedContent.substring(0, importMatcher.start(1)));
+
+        String mediaQuery = importMatcher.group(8);
+        if( mediaQuery != null && mediaQuery.length() > 0) {
+            builder.append("@media");
+            builder.append( mediaQuery );
+            builder.append("{\n");
+        }
+        builder.append(importedLessSource.getNormalizedContent());
+        if( mediaQuery != null && mediaQuery.length() > 0 ) {
+            builder.append("}\n");
+        }
+        builder.append(normalizedContent.substring(importMatcher.end(1)));
+        return builder.toString();
+    }
+
+    public String getName() {
+        return resource.getName();
     }
 }

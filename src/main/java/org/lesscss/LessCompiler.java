@@ -68,10 +68,36 @@ import org.mozilla.javascript.tools.shell.Global;
  */
 public class LessCompiler {
 
-    private static final String COMPILE_STRING = "function doIt(input, compress) { var result; var parser = new less.Parser(); parser.parse(input, function(e, tree) { if (e instanceof Object) { throw e; } ; result = tree.toCSS({compress: compress}); }); return result; }";
+    private static final String COMPILE_STRING = "function doIt(input, compress) {"
+            + "var options = {\n"
+            + "        depends: false,\n"
+            + "        compress: compress,\n"
+            + "        cleancss: false,\n"
+            + "        max_line_len: -1,\n"
+            + "        optimization: 1,\n"
+            + "        silent: false,\n"
+            + "        verbose: false,\n"
+            + "        lint: false,\n"
+            + "        paths: [],\n"
+            + "        color: true,\n"
+            + "        strictImports: false,\n"
+            + "        rootpath: '',\n"
+            + "        relativeUrls: false,\n"
+            + "        ieCompat: true,\n"
+            + "        strictMath: false,\n"
+            + "        strictUnits: false\n"
+            + "}; "
+            + "var result; "
+            + "var parser = new less.Parser(options); "
+            + "parser.parse(input, function(e, tree) {"
+            + " if (e) { throw e; }"
+            + " result = tree.toCSS(options);"
+            + "});"
+            + "return result; "
+            + "}";
     private static final LessLogger logger = LessLoggerFactory.getLogger(LessCompiler.class);
     private URL envJs = LessCompiler.class.getClassLoader().getResource("META-INF/env.rhino.js");
-    private URL lessJs = LessCompiler.class.getClassLoader().getResource("META-INF/less.js");
+    private URL lessJs = LessCompiler.class.getClassLoader().getResource("META-INF/less-1.7.1.js");
     private List<URL> customJs = Collections.emptyList();
     private boolean compress = false;
     private String encoding = null;
@@ -81,8 +107,7 @@ public class LessCompiler {
     private ScriptEngine v8;
 
     /**
-     * Constructs a new
-     * <code>LessCompiler</code>.
+     * Constructs a new <code>LessCompiler</code>.
      */
     public LessCompiler() {
     }
@@ -192,8 +217,7 @@ public class LessCompiler {
 
     /**
      * Returns the character encoding used by the compiler when writing the
-     * output
-     * <code>File</code>.
+     * output <code>File</code>.
      *
      * @return The character encoding used by the compiler when writing the
      * output <code>File</code>.
@@ -218,8 +242,7 @@ public class LessCompiler {
     }
 
     /**
-     * Initializes this
-     * <code>LessCompiler</code>.
+     * Initializes this <code>LessCompiler</code>.
      * <p>
      * It is not needed to call this method manually, as it is called implicitly
      * by the compile methods if needed.
@@ -234,7 +257,7 @@ public class LessCompiler {
             }
             return;
         }
-        
+
         try {
             Context cx = Context.enter();
             cx.setOptimizationLevel(-1);
@@ -303,8 +326,7 @@ public class LessCompiler {
     }
 
     /**
-     * Compiles the LESS input
-     * <code>String</code> to CSS.
+     * Compiles the LESS input <code>String</code> to CSS.
      *
      * @param input The LESS input <code>String</code> to compile.
      * @return The CSS.
@@ -363,8 +385,7 @@ public class LessCompiler {
     }
 
     /**
-     * Compiles the LESS input
-     * <code>File</code> to CSS.
+     * Compiles the LESS input <code>File</code> to CSS.
      *
      * @param input The LESS input <code>File</code> to compile.
      * @return The CSS.
@@ -376,9 +397,8 @@ public class LessCompiler {
     }
 
     /**
-     * Compiles the LESS input
-     * <code>File</code> to CSS and writes it to the specified output
-     * <code>File</code>.
+     * Compiles the LESS input <code>File</code> to CSS and writes it to the
+     * specified output <code>File</code>.
      *
      * @param input The LESS input <code>File</code> to compile.
      * @param output The output <code>File</code> to write the CSS to.
@@ -390,9 +410,8 @@ public class LessCompiler {
     }
 
     /**
-     * Compiles the LESS input
-     * <code>File</code> to CSS and writes it to the specified output
-     * <code>File</code>.
+     * Compiles the LESS input <code>File</code> to CSS and writes it to the
+     * specified output <code>File</code>.
      *
      * @param input The LESS input <code>File</code> to compile.
      * @param output The output <code>File</code> to write the CSS to.
@@ -408,8 +427,7 @@ public class LessCompiler {
     }
 
     /**
-     * Compiles the input
-     * <code>LessSource</code> to CSS.
+     * Compiles the input <code>LessSource</code> to CSS.
      *
      * @param input The input <code>LessSource</code> to compile.
      * @return The CSS.
@@ -419,9 +437,8 @@ public class LessCompiler {
     }
 
     /**
-     * Compiles the input
-     * <code>LessSource</code> to CSS and writes it to the specified output
-     * <code>File</code>.
+     * Compiles the input <code>LessSource</code> to CSS and writes it to the
+     * specified output <code>File</code>.
      *
      * @param input The input <code>LessSource</code> to compile.
      * @param output The output <code>File</code> to write the CSS to.
@@ -433,9 +450,8 @@ public class LessCompiler {
     }
 
     /**
-     * Compiles the input
-     * <code>LessSource</code> to CSS and writes it to the specified output
-     * <code>File</code>.
+     * Compiles the input <code>LessSource</code> to CSS and writes it to the
+     * specified output <code>File</code>.
      *
      * @param input The input <code>LessSource</code> to compile.
      * @param output The output <code>File</code> to write the CSS to.

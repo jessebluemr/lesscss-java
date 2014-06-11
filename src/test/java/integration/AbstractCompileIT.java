@@ -35,14 +35,13 @@ public abstract class AbstractCompileIT {
 	}
 
 	protected void testCompile(File lessFile, File cssFile) throws Exception {
-		String expected = FileUtils.readFileToString(cssFile);
 		String actual = lessCompiler.compile(lessFile);
-                try{
-                    assertEquals(expected.replace("\r\n", "\n"), actual);
-                }catch(AssertionError e){
-                    FileUtils.write(new File(cssFile.getAbsolutePath()+"-error.css"), actual);
-                    throw e;
-                }
+		String expected = FileUtils.readFileToString(cssFile);
+		
+		expected = expected.replace("\r\n", "\n").trim();
+		
+                actual = actual.replace("\r\n", "\n").trim();
+		assertEquals(expected, actual);
 	}
 
 	protected void testCompile(File lessFile, File cssFile, boolean compress) throws Exception {

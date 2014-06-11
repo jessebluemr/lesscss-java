@@ -39,31 +39,11 @@ public class FileResource implements Resource {
     }
 
     @Override
-    public int hashCode() {
-        int hash = 7;
-        hash = 43 * hash + (this.file != null ? this.file.hashCode() : 0);
-        return hash;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        final FileResource other = (FileResource) obj;
-        if (this.file != other.file && (this.file == null || !this.file.equals(other.file))) {
-            return false;
-        }
-        return true;
-    }
-    
-    
-
-    @Override
     public String toString() {
-        return "FileResource{" + "file=" + file + '}';
+        return file.getAbsolutePath();
+    }
+
+    public String getName() {
+        return file.getAbsolutePath();
     }
 }

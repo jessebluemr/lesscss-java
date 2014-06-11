@@ -98,7 +98,7 @@ public class LessCompilerTest {
     @Test
     public void testNewLessCompiler() throws Exception {
         assertEquals(LessCompiler.class.getClassLoader().getResource("META-INF/env.rhino.js"), FieldUtils.readField(lessCompiler, "envJs", true));
-        assertEquals(LessCompiler.class.getClassLoader().getResource("META-INF/less.js"), FieldUtils.readField(lessCompiler, "lessJs", true));
+        assertEquals(LessCompiler.class.getClassLoader().getResource("META-INF/less-1.7.1.js"), FieldUtils.readField(lessCompiler, "lessJs", true));
         assertEquals(Collections.EMPTY_LIST, FieldUtils.readField(lessCompiler, "customJs", true));
     }
     
