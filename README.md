@@ -48,9 +48,6 @@ Official LESS CSS Compiler for Java
 
 LESS CSS Compiler for Java is a library to compile LESS sources to CSS stylesheets.
 
-This fork, is optimized for static maven builds, using source file caching and and integrates the v8 engine(requires a 32bit jvm), for a very fast compile process.
-
-
 The compiler uses Rhino, Envjs (simulated browser environment written in JavaScript), and the official LESS JavaScript compiler.
 
 Look at the simple example below to compile LESS to CSS:
