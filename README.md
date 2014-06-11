@@ -15,7 +15,7 @@ the following in your maven build:
                     <dependency>
                             <groupId>org.lesscss</groupId>
                             <artifactId>lesscss</artifactId>
-                            <version>1.3.3-v8</version>
+                            <version>1.7.1-v8</version>
                     </dependency>
                </dependencies>
           </plugin>
