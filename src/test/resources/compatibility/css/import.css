@@ -2,15 +2,15 @@
 @import url(http://fonts.googleapis.com/css?family=Open+Sans);
 @import url(something.css) screen and (color) and (max-width: 600px);
 #import {
-  color: #ff0000;
+  color: red;
 }
 .mixin {
   height: 10px;
-  color: #ff0000;
+  color: red;
 }
 #import-test {
   height: 10px;
-  color: #ff0000;
+  color: red;
   width: 10px;
   height: 30%;
 }

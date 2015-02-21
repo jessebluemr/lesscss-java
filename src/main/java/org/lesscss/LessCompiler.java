@@ -16,7 +16,6 @@ package org.lesscss;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.text.NumberFormat;
@@ -68,36 +67,11 @@ import org.mozilla.javascript.tools.shell.Global;
  */
 public class LessCompiler {
 
-    private static final String COMPILE_STRING = "function doIt(input, compress) {"
-            + "var options = {\n"
-            + "        depends: false,\n"
-            + "        compress: compress,\n"
-            + "        cleancss: false,\n"
-            + "        max_line_len: -1,\n"
-            + "        optimization: 1,\n"
-            + "        silent: false,\n"
-            + "        verbose: false,\n"
-            + "        lint: false,\n"
-            + "        paths: [],\n"
-            + "        color: true,\n"
-            + "        strictImports: false,\n"
-            + "        rootpath: '',\n"
-            + "        relativeUrls: false,\n"
-            + "        ieCompat: true,\n"
-            + "        strictMath: false,\n"
-            + "        strictUnits: false\n"
-            + "}; "
-            + "var result; "
-            + "var parser = new less.Parser(options); "
-            + "parser.parse(input, function(e, tree) {"
-            + " if (e) { throw e; }"
-            + " result = tree.toCSS(options);"
-            + "});"
-            + "return result; "
-            + "}";
+    private static final String COMPILE_STRING = "function doIt(input, compress) { return compile(input,compress) };";
     private static final LessLogger logger = LessLoggerFactory.getLogger(LessCompiler.class);
+    private URL compileJs = LessCompiler.class.getClassLoader().getResource("META-INF/compile.js");
     private URL envJs = LessCompiler.class.getClassLoader().getResource("META-INF/env.rhino.js");
-    private URL lessJs = LessCompiler.class.getClassLoader().getResource("META-INF/less-1.7.1.js");
+    private URL lessJs = LessCompiler.class.getClassLoader().getResource("META-INF/less-2.4.0.js");
     private List<URL> customJs = Collections.emptyList();
     private boolean compress = false;
     private String encoding = null;
@@ -273,6 +247,7 @@ public class LessCompiler {
             jsUrls.add(envJs);
             jsUrls.add(lessJs);
             jsUrls.addAll(customJs);
+            jsUrls.add(compileJs);
 
             for (URL url : jsUrls) {
                 String fileContent = IOUtils.toString(url.openStream(), Charset.forName("UTF-8"));
@@ -310,6 +285,7 @@ public class LessCompiler {
             jsUrls.add(envV8Js);
             jsUrls.add(lessJs);
             jsUrls.addAll(customJs);
+            jsUrls.add(compileJs);
             for (URL url : jsUrls) {
                 String fileContent = IOUtils.toString(url.openStream(), Charset.forName("UTF-8"));
                 v8eng.eval(fileContent);
@@ -347,12 +323,7 @@ public class LessCompiler {
             if (v8 != null) {
                 Invocable invocable = (Invocable) v8;
                 // V8 is not thread safe?
-                result = invocable.invokeFunction("doItSave", input, compress);
-                String css = result.toString();
-                String errorPrefix = "error:";
-                if (css.startsWith(errorPrefix)) {
-                    throw new IllegalStateException(css.substring(errorPrefix.length()));
-                }
+                result = invocable.invokeFunction("doIt", input, compress);
             } else {
                 // rhino
                 cx = Context.enter();
@@ -362,7 +333,18 @@ public class LessCompiler {
                     logger.debug("Finished compilation of LESS source in " + (System.currentTimeMillis() - start) + " ms.");
                 }
             }
-            return result.toString();
+            String[] parts = result.toString().split("\\|MESSAGES\\|");
+            String messages = parts.length > 1 ? parts[1] : "";
+            if (messages.length() > 0) {
+                logger.info("LESS WARNINGS: " + messages);
+            }
+
+            String css = parts[0];
+            String errorPrefix = "error:";
+            if (css.startsWith(errorPrefix)) {
+                throw new IllegalStateException(css.substring(errorPrefix.length()));
+            }
+            return css;
         } catch (Exception e) {
             logErrorDetail(input, e);
 

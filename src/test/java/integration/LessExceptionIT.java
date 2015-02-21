@@ -14,7 +14,9 @@
  */
 package integration;
 
+import org.junit.Assert;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import org.junit.Test;
 import org.lesscss.LessException;
@@ -25,6 +27,7 @@ public class LessExceptionIT extends AbstractCompileIT {
     public void testException() throws Exception {
 		try {
 			lessCompiler.compile("a { color: @linkColor; }");
+                        fail("Expected Exception");
 		} catch (LessException e) {
 			String exceptionMsg = e.getMessage();
 			assertTrue(exceptionMsg!=null && exceptionMsg.startsWith("variable @linkColor is undefined"));

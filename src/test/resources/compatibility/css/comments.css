@@ -46,10 +46,10 @@
 .selector,
 .lots,
 .comments {
-  color: #808080, /* blue */ #ffa500;
+  color: grey, /* blue */ orange;
   -webkit-border-radius: 2px /* webkit only */;
   -moz-border-radius: 8px /* moz only with operation */;
 }
 #last {
-  color: #0000ff;
+  color: blue;
 }

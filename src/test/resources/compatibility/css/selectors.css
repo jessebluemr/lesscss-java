@@ -56,14 +56,14 @@ p a span {
   display: none;
 }
 .other ::fnord {
-  color: #ff0000;
+  color: red;
 }
 .other::fnord {
-  color: #ff0000;
+  color: red;
 }
 .other ::bnord {
-  color: #ff0000;
+  color: red;
 }
 .other::bnord {
-  color: #ff0000;
+  color: red;
 }
