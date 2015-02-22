@@ -339,7 +339,7 @@ public class LessCompiler {
                 logger.info("LESS WARNINGS: " + messages);
             }
 
-            String css = parts[0];
+            String css =  parts.length > 0 ? parts[0] : "";
             String errorPrefix = "error:";
             if (css.startsWith(errorPrefix)) {
                 throw new IllegalStateException(css.substring(errorPrefix.length()));
