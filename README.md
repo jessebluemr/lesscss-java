@@ -10,12 +10,12 @@ the following in your maven build:
           <plugin>
                <groupId>org.lesscss</groupId>
                <artifactId>lesscss-maven-plugin</artifactId>
-               <version>1.3.0</version>
+               <version>1.3.3</version>
                <dependencies>
                     <dependency>
                             <groupId>org.lesscss</groupId>
                             <artifactId>lesscss</artifactId>
-                            <version>1.7.1-v8</version>
+                            <version>2.4.0-v8</version>
                     </dependency>
                </dependencies>
           </plugin>
@@ -35,7 +35,7 @@ To build the project you need to install the precompiled lib in your local maven
       <!-- v8 engine -->
       <groupId>lu.flier.script</groupId>
       <artifactId>jav8-win32</artifactId>
-      <version>0.3</version>
+      <version>0.4</version>
     </dependency>
 
 
