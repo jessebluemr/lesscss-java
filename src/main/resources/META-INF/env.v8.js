@@ -5,6 +5,6 @@ location = {
 };
 document = {
     getElementsByTagName: function() {
-        return []
+        return [];
     }
 };
