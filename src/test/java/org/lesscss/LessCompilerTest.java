@@ -49,9 +49,6 @@ import org.mozilla.javascript.tools.shell.Global;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import org.lesscss.LessCompiler;
-import org.lesscss.LessException;
-import org.lesscss.LessSource;
 
 @PrepareForTest({Context.class, FileUtils.class, LessCompiler.class})
 @RunWith(PowerMockRunner.class)
@@ -98,7 +95,7 @@ public class LessCompilerTest {
     @Test
     public void testNewLessCompiler() throws Exception {
         assertEquals(LessCompiler.class.getClassLoader().getResource("META-INF/env.rhino.js"), FieldUtils.readField(lessCompiler, "envJs", true));
-        assertEquals(LessCompiler.class.getClassLoader().getResource("META-INF/less-2.6.0.js"), FieldUtils.readField(lessCompiler, "lessJs", true));
+        assertEquals(LessCompiler.class.getClassLoader().getResource("META-INF/less-2.7.1.js"), FieldUtils.readField(lessCompiler, "lessJs", true));
         assertEquals(Collections.EMPTY_LIST, FieldUtils.readField(lessCompiler, "customJs", true));
     }
     

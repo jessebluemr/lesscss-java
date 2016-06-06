@@ -42,7 +42,7 @@ import org.mozilla.javascript.tools.shell.Global;
  * <p>
  * The compiler uses Rhino (JavaScript implementation written in Java), Envjs
  * (simulated browser environment written in JavaScript), and the official LESS
- * JavaScript compiler.<br />
+ * JavaScript compiler.<br>
  * Note that the compiler is not a Java implementation of LESS itself, but
  * rather integrates the LESS JavaScript compiler within a Java/JavaScript
  * browser environment provided by Rhino and Envjs.
@@ -51,14 +51,14 @@ import org.mozilla.javascript.tools.shell.Global;
  * The compiler comes bundled with the Envjs and LESS JavaScript, so there is no
  * need to include them yourself. But if needed they can be overridden.
  * </p>
- * <h4>Basic code example:</h4>
- * <pre>
+ * <h3>Basic code example:</h3>
+ * <code>
  * LessCompiler lessCompiler = new LessCompiler();
  * String css = lessCompiler.compile("
  *
- * @color: #4D926F; #header { color:
- * @color; }");
- * </pre>
+ * {@literal @}color: #4D926F; #header { color:
+ * {@literal @}color; }");
+ * </code>
  *
  * @author Marcel Overdijk
  * @see <a href="http://lesscss.org/">LESS - The Dynamic Stylesheet language</a>
@@ -71,7 +71,7 @@ public class LessCompiler {
     private static final LessLogger logger = LessLoggerFactory.getLogger(LessCompiler.class);
     private URL compileJs = LessCompiler.class.getClassLoader().getResource("META-INF/compile.js");
     private URL envJs = LessCompiler.class.getClassLoader().getResource("META-INF/env.rhino.js");
-    private URL lessJs = LessCompiler.class.getClassLoader().getResource("META-INF/less-2.6.0.js");
+    private URL lessJs = LessCompiler.class.getClassLoader().getResource("META-INF/less-2.7.1.js");
     private List<URL> customJs = Collections.emptyList();
     private boolean compress = false;
     private String encoding = null;

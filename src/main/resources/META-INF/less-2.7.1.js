@@ -1,13 +1,13 @@
 /*!
- * Less - Leaner CSS v2.6.0
+ * Less - Leaner CSS v2.7.1
  * http://lesscss.org
  *
  * Copyright (c) 2009-2016, Alexis Sellier <self@cloudhead.net>
- * Licensed under the  License.
+ * Licensed under the Apache-2.0 License.
  *
  */
 
- /** * @license 
+ /** * @license Apache-2.0
  */
 
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.less = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
@@ -328,16 +328,6 @@ module.exports = function(window, less, options) {
         }
     }
 
-    function error(e, rootHref) {
-        if (!options.errorReporting || options.errorReporting === "html") {
-            errorHTML(e, rootHref);
-        } else if (options.errorReporting === "console") {
-            errorConsole(e, rootHref);
-        } else if (typeof options.errorReporting === 'function') {
-            options.errorReporting("add", e, rootHref);
-        }
-    }
-
     function removeErrorHTML(path) {
         var node = window.document.getElementById('less-error-message:' + utils.extractId(path));
         if (node) {
@@ -385,6 +375,16 @@ module.exports = function(window, less, options) {
             content += '\nStack Trace\n' + e.stack;
         }
         less.logger.error(content);
+    }
+
+    function error(e, rootHref) {
+        if (!options.errorReporting || options.errorReporting === "html") {
+            errorHTML(e, rootHref);
+        } else if (options.errorReporting === "console") {
+            errorConsole(e, rootHref);
+        } else if (typeof options.errorReporting === 'function') {
+            options.errorReporting("add", e, rootHref);
+        }
     }
 
     return {
@@ -772,34 +772,57 @@ module.exports = function(window, options) {
             fileManager.clearFileCache();
         }
         return new Promise(function (resolve, reject) {
-            var startTime, endTime, totalMilliseconds;
+            var startTime, endTime, totalMilliseconds, remainingSheets;
             startTime = endTime = new Date();
 
-            loadStyleSheets(function (e, css, _, sheet, webInfo) {
-                if (e) {
-                    errors.add(e, e.href || sheet.href);
-                    reject(e);
-                    return;
-                }
-                if (webInfo.local) {
-                    less.logger.info("loading " + sheet.href + " from cache.");
-                } else {
-                    less.logger.info("rendered " + sheet.href + " successfully.");
-                }
-                browser.createCSS(window.document, css, sheet);
-                less.logger.info("css for " + sheet.href + " generated in " + (new Date() - endTime) + 'ms');
-                if (webInfo.remaining === 0) {
-                    totalMilliseconds = new Date() - startTime;
-                    less.logger.info("less has finished. css generated in " + totalMilliseconds + 'ms');
-                    resolve({
-                        startTime: startTime,
-                        endTime: endTime,
-                        totalMilliseconds: totalMilliseconds,
-                        sheets: less.sheets.length
-                    });
-                }
+            // Set counter for remaining unprocessed sheets
+            remainingSheets = less.sheets.length;
+
+            if (remainingSheets === 0) {
+
                 endTime = new Date();
-            }, reload, modifyVars);
+                totalMilliseconds = endTime - startTime;
+                less.logger.info("Less has finished and no sheets were loaded.");
+                resolve({
+                    startTime: startTime,
+                    endTime: endTime,
+                    totalMilliseconds: totalMilliseconds,
+                    sheets: less.sheets.length
+                });
+
+            } else {
+                // Relies on less.sheets array, callback seems to be guaranteed to be called for every element of the array
+                loadStyleSheets(function (e, css, _, sheet, webInfo) {
+                    if (e) {
+                        errors.add(e, e.href || sheet.href);
+                        reject(e);
+                        return;
+                    }
+                    if (webInfo.local) {
+                        less.logger.info("Loading " + sheet.href + " from cache.");
+                    } else {
+                        less.logger.info("Rendered " + sheet.href + " successfully.");
+                    }
+                    browser.createCSS(window.document, css, sheet);
+                    less.logger.info("CSS for " + sheet.href + " generated in " + (new Date() - endTime) + 'ms');
+
+                    // Count completed sheet
+                    remainingSheets--;
+
+                    // Check if the last remaining sheet was processed and then call the promise
+                    if (remainingSheets === 0) {
+                        totalMilliseconds = new Date() - startTime;
+                        less.logger.info("Less has finished. CSS generated in " + totalMilliseconds + 'ms');
+                        resolve({
+                            startTime: startTime,
+                            endTime: endTime,
+                            totalMilliseconds: totalMilliseconds,
+                            sheets: less.sheets.length
+                        });
+                    }
+                    endTime = new Date();
+                }, reload, modifyVars);
+            }
 
             loadStyles(modifyVars);
         });
@@ -1245,13 +1268,13 @@ abstractFileManager.prototype.pathDiff = function pathDiff(url, baseUrl) {
 };
 // helper function, not part of API
 abstractFileManager.prototype.extractUrlParts = function extractUrlParts(url, baseUrl) {
-    // urlParts[1] = protocol&hostname || /
+    // urlParts[1] = protocol://hostname/ OR /
     // urlParts[2] = / if path relative to host base
     // urlParts[3] = directories
     // urlParts[4] = filename
     // urlParts[5] = parameters
 
-    var urlPartsRegex = /^((?:[a-z-]+:)?\/+?(?:[^\/\?#]*\/)|([\/\\]))?((?:[^\/\\\?#]*[\/\\])*)([^\/\\\?#]*)([#\?].*)?$/i,
+    var urlPartsRegex = /^((?:[a-z-]+:)?\/{2}(?:[^\/\?#]*\/)|([\/\\]))?((?:[^\/\\\?#]*[\/\\])*)([^\/\\\?#]*)([#\?].*)?$/i,
         urlParts = url.match(urlPartsRegex),
         returner = {}, directories = [], i, baseUrlParts;
 
@@ -1475,6 +1498,9 @@ colorFunctions = {
         return colorFunctions.hsla(h, s, l, 1.0);
     },
     hsla: function (h, s, l, a) {
+
+        var m1, m2;
+
         function hue(h) {
             h = h < 0 ? h + 1 : (h > 1 ? h - 1 : h);
             if (h * 6 < 1) {
@@ -1494,8 +1520,8 @@ colorFunctions = {
         h = (number(h) % 360) / 360;
         s = clamp(number(s)); l = clamp(number(l)); a = clamp(number(a));
 
-        var m2 = l <= 0.5 ? l * (s + 1) : l + s - l * s;
-        var m1 = l * 2 - m2;
+        m2 = l <= 0.5 ? l * (s + 1) : l + s - l * s;
+        m1 = l * 2 - m2;
 
         return colorFunctions.rgba(hue(h + 1 / 3) * 255,
             hue(h)       * 255,
@@ -1666,7 +1692,7 @@ colorFunctions = {
         return hsla(hsl);
     },
     //
-    // Copyright (c) 2006-2009 Hampton Catlin, Nathan Weizenbaum, and Chris Eppstein
+    // Copyright (c) 2006-2009 Hampton Catlin, Natalie Weizenbaum, and Chris Eppstein
     // http://sass-lang.com
     //
     mix: function (color1, color2, weight) {
@@ -1695,33 +1721,41 @@ colorFunctions = {
     greyscale: function (color) {
         return colorFunctions.desaturate(color, new Dimension(100));
     },
-    contrast: function (color, dark, light, threshold) {
+    contrast: function (color, color1, color2, threshold) {
+        // Return which of `color1` and `color2` has the greatest contrast with `color`
+        // according to the standard WCAG contrast ratio calculation.
+        // http://www.w3.org/TR/WCAG20/#contrast-ratiodef
+        // The threshold param is no longer used, in line with SASS.
         // filter: contrast(3.2);
         // should be kept as is, so check for color
         if (!color.rgb) {
             return null;
         }
-        if (typeof light === 'undefined') {
-            light = colorFunctions.rgba(255, 255, 255, 1.0);
+        if (typeof color1 === 'undefined') {
+            color1 = colorFunctions.rgba(0, 0, 0, 1.0);
         }
-        if (typeof dark === 'undefined') {
-            dark = colorFunctions.rgba(0, 0, 0, 1.0);
+        if (typeof color2 === 'undefined') {
+            color2 = colorFunctions.rgba(255, 255, 255, 1.0);
         }
-        //Figure out which is actually light and dark!
-        if (dark.luma() > light.luma()) {
-            var t = light;
-            light = dark;
-            dark = t;
-        }
-        if (typeof threshold === 'undefined') {
-            threshold = 0.43;
+        var contrast1, contrast2;
+        var luma = color.luma();
+        var luma1 = color1.luma();
+        var luma2 = color2.luma();
+        // Calculate contrast ratios for each color
+        if (luma > luma1) {
+            contrast1 = (luma + 0.05) / (luma1 + 0.05);
         } else {
-            threshold = number(threshold);
+            contrast1 = (luma1 + 0.05) / (luma + 0.05);
         }
-        if (color.luma() < threshold) {
-            return light;
+        if (luma > luma2) {
+            contrast2 = (luma + 0.05) / (luma2 + 0.05);
         } else {
-            return dark;
+            contrast2 = (luma2 + 0.05) / (luma + 0.05);
+        }
+        if (contrast1 > contrast2) {
+            return color1;
+        } else {
+            return color2;
         }
     },
     argb: function (color) {
@@ -2454,7 +2488,7 @@ module.exports = function(environment, fileManagers) {
     var SourceMapOutput, SourceMapBuilder, ParseTree, ImportManager, Environment;
 
     var less = {
-        version: [2, 6, 0],
+        version: [2, 7, 1],
         data: require('./data'),
         tree: require('./tree'),
         Environment: (Environment = require("./environment/environment")),
@@ -2820,6 +2854,74 @@ module.exports = function() {
         currentPos,  // index of current chunk, in `input`
         parserInput = {};
 
+    var CHARCODE_SPACE = 32,
+        CHARCODE_TAB = 9,
+        CHARCODE_LF = 10,
+        CHARCODE_CR = 13,
+        CHARCODE_PLUS = 43,
+        CHARCODE_COMMA = 44,
+        CHARCODE_FORWARD_SLASH = 47,
+        CHARCODE_9 = 57;
+
+    function skipWhitespace(length) {
+        var oldi = parserInput.i, oldj = j,
+            curr = parserInput.i - currentPos,
+            endIndex = parserInput.i + current.length - curr,
+            mem = (parserInput.i += length),
+            inp = input,
+            c, nextChar, comment;
+
+        for (; parserInput.i < endIndex; parserInput.i++) {
+            c = inp.charCodeAt(parserInput.i);
+
+            if (parserInput.autoCommentAbsorb && c === CHARCODE_FORWARD_SLASH) {
+                nextChar = inp.charAt(parserInput.i + 1);
+                if (nextChar === '/') {
+                    comment = {index: parserInput.i, isLineComment: true};
+                    var nextNewLine = inp.indexOf("\n", parserInput.i + 2);
+                    if (nextNewLine < 0) {
+                        nextNewLine = endIndex;
+                    }
+                    parserInput.i = nextNewLine;
+                    comment.text = inp.substr(comment.index, parserInput.i - comment.index);
+                    parserInput.commentStore.push(comment);
+                    continue;
+                } else if (nextChar === '*') {
+                    var nextStarSlash = inp.indexOf("*/", parserInput.i + 2);
+                    if (nextStarSlash >= 0) {
+                        comment = {
+                            index: parserInput.i,
+                            text: inp.substr(parserInput.i, nextStarSlash + 2 - parserInput.i),
+                            isLineComment: false
+                        };
+                        parserInput.i += comment.text.length - 1;
+                        parserInput.commentStore.push(comment);
+                        continue;
+                    }
+                }
+                break;
+            }
+
+            if ((c !== CHARCODE_SPACE) && (c !== CHARCODE_LF) && (c !== CHARCODE_TAB) && (c !== CHARCODE_CR)) {
+                break;
+            }
+        }
+
+        current = current.slice(length + parserInput.i - mem + curr);
+        currentPos = parserInput.i;
+
+        if (!current.length) {
+            if (j < chunks.length - 1) {
+                current = chunks[++j];
+                skipWhitespace(0); // skip space at the beginning of a chunk
+                return true; // things changed
+            }
+            parserInput.finished = true;
+        }
+
+        return oldi !== parserInput.i || oldj !== j;
+    }
+
     parserInput.save = function() {
         currentPos = parserInput.i;
         saveStack.push( { current: current, i: parserInput.i, j: j });
@@ -2914,77 +3016,9 @@ module.exports = function() {
         return null;
     };
 
-    var CHARCODE_SPACE = 32,
-        CHARCODE_TAB = 9,
-        CHARCODE_LF = 10,
-        CHARCODE_CR = 13,
-        CHARCODE_PLUS = 43,
-        CHARCODE_COMMA = 44,
-        CHARCODE_FORWARD_SLASH = 47,
-        CHARCODE_9 = 57;
-
     parserInput.autoCommentAbsorb = true;
     parserInput.commentStore = [];
     parserInput.finished = false;
-
-    var skipWhitespace = function(length) {
-        var oldi = parserInput.i, oldj = j,
-            curr = parserInput.i - currentPos,
-            endIndex = parserInput.i + current.length - curr,
-            mem = (parserInput.i += length),
-            inp = input,
-            c, nextChar, comment;
-
-        for (; parserInput.i < endIndex; parserInput.i++) {
-            c = inp.charCodeAt(parserInput.i);
-
-            if (parserInput.autoCommentAbsorb && c === CHARCODE_FORWARD_SLASH) {
-                nextChar = inp.charAt(parserInput.i + 1);
-                if (nextChar === '/') {
-                    comment = {index: parserInput.i, isLineComment: true};
-                    var nextNewLine = inp.indexOf("\n", parserInput.i + 2);
-                    if (nextNewLine < 0) {
-                        nextNewLine = endIndex;
-                    }
-                    parserInput.i = nextNewLine;
-                    comment.text = inp.substr(comment.i, parserInput.i - comment.i);
-                    parserInput.commentStore.push(comment);
-                    continue;
-                } else if (nextChar === '*') {
-                    var nextStarSlash = inp.indexOf("*/", parserInput.i + 2);
-                    if (nextStarSlash >= 0) {
-                        comment = {
-                            index: parserInput.i,
-                            text: inp.substr(parserInput.i, nextStarSlash + 2 - parserInput.i),
-                            isLineComment: false
-                        };
-                        parserInput.i += comment.text.length - 1;
-                        parserInput.commentStore.push(comment);
-                        continue;
-                    }
-                }
-                break;
-            }
-
-            if ((c !== CHARCODE_SPACE) && (c !== CHARCODE_LF) && (c !== CHARCODE_TAB) && (c !== CHARCODE_CR)) {
-                break;
-            }
-        }
-
-        current = current.slice(length + parserInput.i - mem + curr);
-        currentPos = parserInput.i;
-
-        if (!current.length) {
-            if (j < chunks.length - 1) {
-                current = chunks[++j];
-                skipWhitespace(0); // skip space at the beginning of a chunk
-                return true; // things changed
-            }
-            parserInput.finished = true;
-        }
-
-        return oldi !== parserInput.i || oldj !== j;
-    };
 
     // Same as $(), but don't change the state of the parser,
     // just return the match.
@@ -3026,7 +3060,7 @@ module.exports = function() {
         input = str;
         parserInput.i = j = currentPos = furthest = 0;
 
-        // chunking apparantly makes things quicker (but my tests indicate
+        // chunking apparently makes things quicker (but my tests indicate
         // it might actually make things slower in node at least)
         // and it is a non-perfect parse - it can't recognise
         // unquoted urls, meaning it can't distinguish comments
@@ -3111,9 +3145,21 @@ var Parser = function Parser(context, imports, fileInfo) {
     var parsers,
         parserInput = getParserInput();
 
+    function error(msg, type) {
+        throw new LessError(
+            {
+                index: parserInput.i,
+                filename: fileInfo.filename,
+                type: type || 'Syntax',
+                message: msg
+            },
+            imports
+        );
+    }
+
     function expect(arg, msg, index) {
         // some older browsers return typeof 'function' for RegExp
-        var result = (Object.prototype.toString.call(arg) === '[object Function]') ? arg.call(parsers) : parserInput.$re(arg);
+        var result = (arg instanceof Function) ? arg.call(parsers) : parserInput.$re(arg);
         if (result) {
             return result;
         }
@@ -3127,18 +3173,6 @@ var Parser = function Parser(context, imports, fileInfo) {
             return arg;
         }
         error(msg || "expected '" + arg + "' got '" + parserInput.currentChar() + "'");
-    }
-
-    function error(msg, type) {
-        throw new LessError(
-            {
-                index: parserInput.i,
-                filename: fileInfo.filename,
-                type: type || 'Syntax',
-                message: msg
-            },
-            imports
-        );
     }
 
     function getDebugInfo(index) {
@@ -3331,7 +3365,7 @@ var Parser = function Parser(context, imports, fileInfo) {
                     }
 
                     node = mixin.definition() || this.rule() || this.ruleset() ||
-                        mixin.call() || this.rulesetCall() || this.directive();
+                        mixin.call() || this.rulesetCall() || this.entities.call() || this.directive();
                     if (node) {
                         root.push(node);
                     } else {
@@ -3395,26 +3429,6 @@ var Parser = function Parser(context, imports, fileInfo) {
                     }
                 },
 
-                namedColor: function () {
-                    parserInput.save();
-                    var autoCommentAbsorb = parserInput.autoCommentAbsorb;
-                    parserInput.autoCommentAbsorb = false;
-                    var k = parserInput.$re(/^[_A-Za-z-][_A-Za-z0-9-]*/);
-                    parserInput.autoCommentAbsorb = autoCommentAbsorb;
-                    if (!k) {
-                        parserInput.forget();
-                        return ;
-                    }
-                    var result = tree.Color.fromKeyword(k);
-                    if (!result) {
-                        parserInput.restore();
-                    } else {
-                        parserInput.forget();
-                        return result;
-                    }
-
-                },
-
                 //
                 // A function call
                 //
@@ -3460,19 +3474,51 @@ var Parser = function Parser(context, imports, fileInfo) {
                     return new(tree.Call)(name, args, index, fileInfo);
                 },
                 arguments: function () {
-                    var args = [], arg;
+                    var argsSemiColon = [], argsComma = [],
+                        expressions = [],
+                        isSemiColonSeparated, value, arg;
+
+                    parserInput.save();
 
                     while (true) {
-                        arg = this.assignment() || parsers.expression();
+
+                        arg = parsers.detachedRuleset() || this.assignment() || parsers.expression();
+
                         if (!arg) {
                             break;
                         }
-                        args.push(arg);
-                        if (! parserInput.$char(',')) {
-                            break;
+
+                        value = arg;
+
+                        if (arg.value && arg.value.length == 1) {
+                            value = arg.value[0];
+                        }
+
+                        if (value) {
+                            expressions.push(value);
+                        }
+
+                        argsComma.push(value);
+
+                        if (parserInput.$char(',')) {
+                            continue;
+                        }
+
+                        if (parserInput.$char(';') || isSemiColonSeparated) {
+
+                            isSemiColonSeparated = true;
+
+                            if (expressions.length > 1) {
+                                value = new(tree.Value)(expressions);
+                            }
+                            argsSemiColon.push(value);
+
+                            expressions = [];
                         }
                     }
-                    return args;
+
+                    parserInput.forget();
+                    return isSemiColonSeparated ? argsSemiColon : argsComma;
                 },
                 literal: function () {
                     return this.dimension() ||
@@ -3552,7 +3598,7 @@ var Parser = function Parser(context, imports, fileInfo) {
                     }
                 },
 
-                // A variable entity useing the protective {} e.g. @{var}
+                // A variable entity using the protective {} e.g. @{var}
                 variableCurly: function () {
                     var curly, index = parserInput.i;
 
@@ -3581,8 +3627,24 @@ var Parser = function Parser(context, imports, fileInfo) {
                         }
                         return new(tree.Color)(rgb[1], undefined, '#' + colorCandidateString);
                     }
+                },
 
-                    return this.namedColor();
+                colorKeyword: function () {
+                    parserInput.save();
+                    var autoCommentAbsorb = parserInput.autoCommentAbsorb;
+                    parserInput.autoCommentAbsorb = false;
+                    var k = parserInput.$re(/^[_A-Za-z-][_A-Za-z0-9-]+/);
+                    parserInput.autoCommentAbsorb = autoCommentAbsorb;
+                    if (!k) {
+                        parserInput.forget();
+                        return;
+                    }
+                    parserInput.restore();
+                    var color = tree.Color.fromKeyword(k);
+                    if (color) {
+                        parserInput.$str(k);
+                        return color;
+                    }
                 },
 
                 //
@@ -3661,7 +3723,7 @@ var Parser = function Parser(context, imports, fileInfo) {
             rulesetCall: function () {
                 var name;
 
-                if (parserInput.currentChar() === '@' && (name = parserInput.$re(/^(@[\w-]+)\s*\(\s*\)\s*;/))) {
+                if (parserInput.currentChar() === '@' && (name = parserInput.$re(/^(@[\w-]+)\(\s*\)\s*;/))) {
                     return new tree.RulesetCall(name[1]);
                 }
             },
@@ -3973,7 +4035,7 @@ var Parser = function Parser(context, imports, fileInfo) {
             //
             // A Rule terminator. Note that we use `peek()` to check for '}',
             // because the `block` rule will be expecting it, but we still need to make sure
-            // it's there, if ';' was ommitted.
+            // it's there, if ';' was omitted.
             //
             end: function () {
                 return parserInput.$char(';') || parserInput.peek('}');
@@ -4395,10 +4457,10 @@ var Parser = function Parser(context, imports, fileInfo) {
             },
 
             media: function () {
-                var features, rules, media, debugInfo;
+                var features, rules, media, debugInfo, index = parserInput.i;
 
                 if (context.dumpLineNumbers) {
-                    debugInfo = getDebugInfo(parserInput.i);
+                    debugInfo = getDebugInfo(index);
                 }
 
                 parserInput.save();
@@ -4414,7 +4476,7 @@ var Parser = function Parser(context, imports, fileInfo) {
 
                     parserInput.forget();
 
-                    media = new(tree.Media)(rules, features, parserInput.i, fileInfo);
+                    media = new(tree.Media)(rules, features, index, fileInfo);
                     if (context.dumpLineNumbers) {
                         media.debugInfo = debugInfo;
                     }
@@ -4714,12 +4776,44 @@ var Parser = function Parser(context, imports, fileInfo) {
                 }
             },
             parenthesisCondition: function () {
+                function tryConditionFollowedByParenthesis(me) {
+                    var body;
+                    parserInput.save();
+                    body = me.condition();
+                    if (!body) {
+                        parserInput.restore();
+                        return ;
+                    }
+                    if (!parserInput.$char(')')) {
+                        parserInput.restore();
+                        return ;
+                    }
+                    parserInput.forget();
+                    return body;
+                }
+
                 var body;
+                parserInput.save();
                 if (!parserInput.$str("(")) {
+                    parserInput.restore();
                     return ;
                 }
-                body = this.condition() || this.atomicCondition();
-                expectChar(')');
+                body = tryConditionFollowedByParenthesis(this);
+                if (body) {
+                    parserInput.forget();
+                    return body;
+                }
+
+                body = this.atomicCondition();
+                if (!body) {
+                    parserInput.restore();
+                    return ;
+                }
+                if (!parserInput.$char(')')) {
+                    parserInput.restore("expected ')' got '" + parserInput.currentChar() + "'");
+                    return ;
+                }
+                parserInput.forget();
                 return body;
             },
             atomicCondition: function () {
@@ -4776,8 +4870,8 @@ var Parser = function Parser(context, imports, fileInfo) {
                 }
 
                 var o = this.sub() || entities.dimension() ||
-                        entities.variable() ||
-                        entities.call() || entities.color();
+                        entities.color() || entities.variable() ||
+                        entities.call() || entities.colorKeyword();
 
                 if (negate) {
                     o.parensInOp = true;
@@ -5414,7 +5508,7 @@ var Anonymous = function (value, index, currentFileInfo, mapLines, rulesetLike, 
     this.mapLines = mapLines;
     this.currentFileInfo = currentFileInfo;
     this.rulesetLike = (typeof rulesetLike === 'undefined') ? false : rulesetLike;
-
+    this.allowRoot = true;
     this.copyVisibilityInfo(visibilityInfo);
 };
 Anonymous.prototype = new Node();
@@ -5525,17 +5619,20 @@ Call.prototype.eval = function (context) {
     var args = this.args.map(function (a) { return a.eval(context); }),
         result, funcCaller = new FunctionCaller(this.name, context, this.index, this.currentFileInfo);
 
-    if (funcCaller.isValid()) { // 1.
+    if (funcCaller.isValid()) {
         try {
             result = funcCaller.call(args);
-            if (result != null) {
-                return result;
-            }
         } catch (e) {
             throw { type: e.type || "Runtime",
                     message: "error evaluating function `" + this.name + "`" +
                              (e.message ? ': ' + e.message : ''),
                     index: this.index, filename: this.currentFileInfo.filename };
+        }
+
+        if (result != null) {
+            result.index = this.index;
+            result.currentFileInfo = this.currentFileInfo;
+            return result;
         }
     }
 
@@ -5779,6 +5876,7 @@ var Comment = function (value, isLineComment, index, currentFileInfo) {
     this.value = value;
     this.isLineComment = isLineComment;
     this.currentFileInfo = currentFileInfo;
+    this.allowRoot = true;
 };
 Comment.prototype = new Node();
 Comment.prototype.type = "Comment";
@@ -6081,6 +6179,7 @@ var Directive = function (name, value, rules, index, currentFileInfo, debugInfo,
     this.debugInfo = debugInfo;
     this.isRooted = isRooted || false;
     this.copyVisibilityInfo(visibilityInfo);
+    this.allowRoot = true;
 };
 
 Directive.prototype = new Node();
@@ -6322,6 +6421,7 @@ var Extend = function Extend(selector, option, index, currentFileInfo, visibilit
     this.parent_ids = [this.object_id];
     this.currentFileInfo = currentFileInfo || {};
     this.copyVisibilityInfo(visibilityInfo);
+    this.allowRoot = true;
 
     switch(option) {
         case "all":
@@ -6394,6 +6494,7 @@ var Import = function (path, features, options, index, currentFileInfo, visibili
     this.path = path;
     this.features = features;
     this.currentFileInfo = currentFileInfo;
+    this.allowRoot = true;
 
     if (this.options.less !== undefined || this.options.inline) {
         this.css = !this.options.less || this.options.inline;
@@ -6705,6 +6806,7 @@ var Media = function (value, features, index, currentFileInfo, visibilityInfo) {
     this.rules = [new Ruleset(selectors, value)];
     this.rules[0].allowImports = true;
     this.copyVisibilityInfo(visibilityInfo);
+    this.allowRoot = true;
 };
 Media.prototype = new Directive();
 Media.prototype.type = "Media";
@@ -6845,6 +6947,7 @@ var MixinCall = function (elements, args, index, currentFileInfo, important) {
     this.index = index;
     this.currentFileInfo = currentFileInfo;
     this.important = important;
+    this.allowRoot = true;
 };
 MixinCall.prototype = new Node();
 MixinCall.prototype.type = "MixinCall";
@@ -7047,6 +7150,7 @@ var Definition = function (name, params, rules, condition, variadic, frames, vis
     this.optionalParameters = optionalParameters;
     this.frames = frames;
     this.copyVisibilityInfo(visibilityInfo);
+    this.allowRoot = true;
 };
 Definition.prototype = new Ruleset();
 Definition.prototype.type = "MixinDefinition";
@@ -7147,7 +7251,7 @@ Definition.prototype.makeImportant = function() {
             return r;
         }
     });
-    var result = new Definition (this.name, this.params, rules, this.condition, this.variadic, this.frames);
+    var result = new Definition(this.name, this.params, rules, this.condition, this.variadic, this.frames);
     return result;
 };
 Definition.prototype.eval = function (context) {
@@ -7506,6 +7610,7 @@ var Rule = function (name, value, important, merge, index, currentFileInfo, inli
     this.inline = inline || false;
     this.variable = (variable !== undefined) ? variable
         : (name.charAt && (name.charAt(0) === '@'));
+    this.allowRoot = true;
 };
 
 function evalName(context, name) {
@@ -7593,6 +7698,7 @@ var Node = require("./node"),
 
 var RulesetCall = function (variable) {
     this.variable = variable;
+    this.allowRoot = true;
 };
 RulesetCall.prototype = new Node();
 RulesetCall.prototype.type = "RulesetCall";
@@ -7619,6 +7725,7 @@ var Ruleset = function (selectors, rules, strictImports, visibilityInfo) {
     this._lookups = {};
     this.strictImports = strictImports;
     this.copyVisibilityInfo(visibilityInfo);
+    this.allowRoot = true;
 };
 Ruleset.prototype = new Node();
 Ruleset.prototype.type = "Ruleset";
@@ -8068,6 +8175,91 @@ Ruleset.prototype.joinSelector = function (paths, context, selector) {
         return selector;
     }
 
+    // joins selector path from `beginningPath` with selector path in `addPath`
+    // `replacedElement` contains element that is being replaced by `addPath`
+    // returns concatenated path
+    function addReplacementIntoPath(beginningPath, addPath, replacedElement, originalSelector) {
+        var newSelectorPath, lastSelector, newJoinedSelector;
+        // our new selector path
+        newSelectorPath = [];
+
+        //construct the joined selector - if & is the first thing this will be empty,
+        // if not newJoinedSelector will be the last set of elements in the selector
+        if (beginningPath.length > 0) {
+            newSelectorPath = beginningPath.slice(0);
+            lastSelector = newSelectorPath.pop();
+            newJoinedSelector = originalSelector.createDerived(lastSelector.elements.slice(0));
+        }
+        else {
+            newJoinedSelector = originalSelector.createDerived([]);
+        }
+
+        if (addPath.length > 0) {
+            // /deep/ is a combinator that is valid without anything in front of it
+            // so if the & does not have a combinator that is "" or " " then
+            // and there is a combinator on the parent, then grab that.
+            // this also allows + a { & .b { .a & { ... though not sure why you would want to do that
+            var combinator = replacedElement.combinator, parentEl = addPath[0].elements[0];
+            if (combinator.emptyOrWhitespace && !parentEl.combinator.emptyOrWhitespace) {
+                combinator = parentEl.combinator;
+            }
+            // join the elements so far with the first part of the parent
+            newJoinedSelector.elements.push(new Element(combinator, parentEl.value, replacedElement.index, replacedElement.currentFileInfo));
+            newJoinedSelector.elements = newJoinedSelector.elements.concat(addPath[0].elements.slice(1));
+        }
+
+        // now add the joined selector - but only if it is not empty
+        if (newJoinedSelector.elements.length !== 0) {
+            newSelectorPath.push(newJoinedSelector);
+        }
+
+        //put together the parent selectors after the join (e.g. the rest of the parent)
+        if (addPath.length > 1) {
+            var restOfPath = addPath.slice(1);
+            restOfPath = restOfPath.map(function (selector) {
+                return selector.createDerived(selector.elements, []);
+            });
+            newSelectorPath = newSelectorPath.concat(restOfPath);
+        }
+        return newSelectorPath;
+    }
+
+    // joins selector path from `beginningPath` with every selector path in `addPaths` array
+    // `replacedElement` contains element that is being replaced by `addPath`
+    // returns array with all concatenated paths
+    function addAllReplacementsIntoPath( beginningPath, addPaths, replacedElement, originalSelector, result) {
+        var j;
+        for (j = 0; j < beginningPath.length; j++) {
+            var newSelectorPath = addReplacementIntoPath(beginningPath[j], addPaths, replacedElement, originalSelector);
+            result.push(newSelectorPath);
+        }
+        return result;
+    }
+
+    function mergeElementsOnToSelectors(elements, selectors) {
+        var i, sel;
+
+        if (elements.length === 0) {
+            return ;
+        }
+        if (selectors.length === 0) {
+            selectors.push([ new Selector(elements) ]);
+            return;
+        }
+
+        for (i = 0; i < selectors.length; i++) {
+            sel = selectors[i];
+
+            // if the previous thing in sel is a parent this needs to join on to it
+            if (sel.length > 0) {
+                sel[sel.length - 1] = sel[sel.length - 1].createDerived(sel[sel.length - 1].elements.concat(elements));
+            }
+            else {
+                sel.push(new Selector(elements));
+            }
+        }
+    }
+
     // replace all parent selectors inside `inSelector` by content of `context` array
     // resulting selectors are returned inside `paths` array
     // returns true if `inSelector` contained at least one parent selector
@@ -8186,91 +8378,6 @@ Ruleset.prototype.joinSelector = function (paths, context, selector) {
         }
 
         return hadParentSelector;
-    }
-
-    // joins selector path from `beginningPath` with selector path in `addPath`
-    // `replacedElement` contains element that is being replaced by `addPath`
-    // returns concatenated path
-    function addReplacementIntoPath(beginningPath, addPath, replacedElement, originalSelector) {
-        var newSelectorPath, lastSelector, newJoinedSelector;
-        // our new selector path
-        newSelectorPath = [];
-
-        //construct the joined selector - if & is the first thing this will be empty,
-        // if not newJoinedSelector will be the last set of elements in the selector
-        if (beginningPath.length > 0) {
-            newSelectorPath = beginningPath.slice(0);
-            lastSelector = newSelectorPath.pop();
-            newJoinedSelector = originalSelector.createDerived(lastSelector.elements.slice(0));
-        }
-        else {
-            newJoinedSelector = originalSelector.createDerived([]);
-        }
-
-        if (addPath.length > 0) {
-            // /deep/ is a combinator that is valid without anything in front of it
-            // so if the & does not have a combinator that is "" or " " then
-            // and there is a combinator on the parent, then grab that.
-            // this also allows + a { & .b { .a & { ... though not sure why you would want to do that
-            var combinator = replacedElement.combinator, parentEl = addPath[0].elements[0];
-            if (combinator.emptyOrWhitespace && !parentEl.combinator.emptyOrWhitespace) {
-                combinator = parentEl.combinator;
-            }
-            // join the elements so far with the first part of the parent
-            newJoinedSelector.elements.push(new Element(combinator, parentEl.value, replacedElement.index, replacedElement.currentFileInfo));
-            newJoinedSelector.elements = newJoinedSelector.elements.concat(addPath[0].elements.slice(1));
-        }
-
-        // now add the joined selector - but only if it is not empty
-        if (newJoinedSelector.elements.length !== 0) {
-            newSelectorPath.push(newJoinedSelector);
-        }
-
-        //put together the parent selectors after the join (e.g. the rest of the parent)
-        if (addPath.length > 1) {
-            var restOfPath = addPath.slice(1);
-            restOfPath = restOfPath.map(function (selector) {
-                return selector.createDerived(selector.elements, []);
-            });
-            newSelectorPath = newSelectorPath.concat(restOfPath);
-        }
-        return newSelectorPath;
-    }
-
-    // joins selector path from `beginningPath` with every selector path in `addPaths` array
-    // `replacedElement` contains element that is being replaced by `addPath`
-    // returns array with all concatenated paths
-    function addAllReplacementsIntoPath( beginningPath, addPaths, replacedElement, originalSelector, result) {
-        var j;
-        for (j = 0; j < beginningPath.length; j++) {
-            var newSelectorPath = addReplacementIntoPath(beginningPath[j], addPaths, replacedElement, originalSelector);
-            result.push(newSelectorPath);
-        }
-        return result;
-    }
-
-    function mergeElementsOnToSelectors(elements, selectors) {
-        var i, sel;
-
-        if (elements.length === 0) {
-            return ;
-        }
-        if (selectors.length === 0) {
-            selectors.push([ new Selector(elements) ]);
-            return;
-        }
-
-        for (i = 0; i < selectors.length; i++) {
-            sel = selectors[i];
-
-            // if the previous thing in sel is a parent this needs to join on to it
-            if (sel.length > 0) {
-                sel[sel.length - 1] = sel[sel.length - 1].createDerived(sel[sel.length - 1].elements.concat(elements));
-            }
-            else {
-                sel.push(new Selector(elements));
-            }
-        }
     }
 
     function deriveSelector(visibilityInfo, deriveFrom) {
@@ -8501,7 +8608,7 @@ Unit.prototype.map = function(callback) {
     }
 };
 Unit.prototype.usedUnits = function() {
-    var group, result = {}, mapUnit;
+    var group, result = {}, mapUnit, groupName;
 
     mapUnit = function (atomicUnit) {
         /*jshint loopfunc:true */
@@ -8512,7 +8619,7 @@ Unit.prototype.usedUnits = function() {
         return atomicUnit;
     };
 
-    for (var groupName in unitConversions) {
+    for (groupName in unitConversions) {
         if (unitConversions.hasOwnProperty(groupName)) {
             group = unitConversions[groupName];
 
@@ -8826,7 +8933,7 @@ var ProcessExtendsVisitor = function() {
 ProcessExtendsVisitor.prototype = {
     run: function(root) {
         var extendFinder = new ExtendFinderVisitor();
-        this.extendIndicies = {};
+        this.extendIndices = {};
         extendFinder.run(root);
         if (!extendFinder.foundExtends) { return root; }
         root.allExtends = root.allExtends.concat(this.doExtendChaining(root.allExtends, root.allExtends));
@@ -8836,7 +8943,7 @@ ProcessExtendsVisitor.prototype = {
         return newRoot;
     },
     checkExtendsForNonMatched: function(extendList) {
-        var indicies = this.extendIndicies;
+        var indices = this.extendIndices;
         extendList.filter(function(extend) {
             return !extend.hasFoundMatches && extend.parent_ids.length == 1;
         }).forEach(function(extend) {
@@ -8846,8 +8953,8 @@ ProcessExtendsVisitor.prototype = {
                 }
                 catch(_) {}
 
-                if (!indicies[extend.index + ' ' + selector]) {
-                    indicies[extend.index + ' ' + selector] = true;
+                if (!indices[extend.index + ' ' + selector]) {
+                    indices[extend.index + ' ' + selector] = true;
                     logger.warn("extend '" + selector + "' has no matches");
                 }
             });
@@ -8871,7 +8978,7 @@ ProcessExtendsVisitor.prototype = {
         // a target extend is the one on the ruleset we are looking at copy/edit/pasting in place
         // e.g.  .a:extend(.b) {}  and .b:extend(.c) {} then the first extend extends the second one
         // and the second is the target.
-        // the seperation into two lists allows us to process a subset of chains with a bigger set, as is the
+        // the separation into two lists allows us to process a subset of chains with a bigger set, as is the
         // case when processing media queries
         for (extendIndex = 0; extendIndex < extendsList.length; extendIndex++) {
             for (targetExtendIndex = 0; targetExtendIndex < extendsListTarget.length; targetExtendIndex++) {
@@ -9688,7 +9795,6 @@ ToCSSVisitor.prototype = {
         } else {
             return this.visitDirectiveWithoutBody(directiveNode, visitArgs);
         }
-        return directiveNode;
     },
 
     visitDirectiveWithBody: function(directiveNode, visitArgs) {
@@ -9743,13 +9849,24 @@ ToCSSVisitor.prototype = {
         return directiveNode;
     },
 
-    checkPropertiesInRoot: function(rules) {
-        var ruleNode;
+    checkValidNodes: function(rules, isRoot) {
+        if (!rules) {
+            return;
+        }
+
         for (var i = 0; i < rules.length; i++) {
-            ruleNode = rules[i];
-            if (ruleNode instanceof tree.Rule && !ruleNode.variable) {
-                throw { message: "properties must be inside selector blocks, they cannot be in the root.",
-                    index: ruleNode.index, filename: ruleNode.currentFileInfo ? ruleNode.currentFileInfo.filename : null};
+            var ruleNode = rules[i];
+            if (isRoot && ruleNode instanceof tree.Rule && !ruleNode.variable) {
+                throw { message: "Properties must be inside selector blocks. They cannot be in the root",
+                    index: ruleNode.index, filename: ruleNode.currentFileInfo && ruleNode.currentFileInfo.filename};
+            }
+            if (ruleNode instanceof tree.Call) {
+                throw { message: "Function '" + ruleNode.name + "' is undefined",
+                    index: ruleNode.index, filename: ruleNode.currentFileInfo && ruleNode.currentFileInfo.filename};
+            }
+            if (ruleNode.type && !ruleNode.allowRoot) {
+                throw { message: ruleNode.type + " node returned by a function is not valid here",
+                    index: ruleNode.index, filename: ruleNode.currentFileInfo && ruleNode.currentFileInfo.filename};
             }
         }
     },
@@ -9757,9 +9874,9 @@ ToCSSVisitor.prototype = {
     visitRuleset: function (rulesetNode, visitArgs) {
         //at this point rulesets are nested into each other
         var rule, rulesets = [];
-        if (rulesetNode.firstRoot) {
-            this.checkPropertiesInRoot(rulesetNode.rules);
-        }
+
+        this.checkValidNodes(rulesetNode.rules, rulesetNode.firstRoot);
+
         if (! rulesetNode.root) {
             //remove invisible paths
             this._compileRulesetPaths(rulesetNode);
@@ -10081,145 +10198,487 @@ Visitor.prototype = {
 module.exports = Visitor;
 
 },{"../tree":62}],92:[function(require,module,exports){
-// shim for using process in browser
+"use strict";
 
-var process = module.exports = {};
-var queue = [];
-var draining = false;
+// rawAsap provides everything we need except exception management.
+var rawAsap = require("./raw");
+// RawTasks are recycled to reduce GC churn.
+var freeTasks = [];
+// We queue errors to ensure they are thrown in right order (FIFO).
+// Array-as-queue is good enough here, since we are just dealing with exceptions.
+var pendingErrors = [];
+var requestErrorThrow = rawAsap.makeRequestCallFromTimer(throwFirstError);
 
-function drainQueue() {
-    if (draining) {
-        return;
+function throwFirstError() {
+    if (pendingErrors.length) {
+        throw pendingErrors.shift();
     }
-    draining = true;
-    var currentQueue;
-    var len = queue.length;
-    while(len) {
-        currentQueue = queue;
-        queue = [];
-        var i = -1;
-        while (++i < len) {
-            currentQueue[i]();
-        }
-        len = queue.length;
-    }
-    draining = false;
 }
-process.nextTick = function (fun) {
-    queue.push(fun);
-    if (!draining) {
-        setTimeout(drainQueue, 0);
+
+/**
+ * Calls a task as soon as possible after returning, in its own event, with priority
+ * over other events like animation, reflow, and repaint. An error thrown from an
+ * event will not interrupt, nor even substantially slow down the processing of
+ * other events, but will be rather postponed to a lower priority event.
+ * @param {{call}} task A callable object, typically a function that takes no
+ * arguments.
+ */
+module.exports = asap;
+function asap(task) {
+    var rawTask;
+    if (freeTasks.length) {
+        rawTask = freeTasks.pop();
+    } else {
+        rawTask = new RawTask();
+    }
+    rawTask.task = task;
+    rawAsap(rawTask);
+}
+
+// We wrap tasks with recyclable task objects.  A task object implements
+// `call`, just like a function.
+function RawTask() {
+    this.task = null;
+}
+
+// The sole purpose of wrapping the task is to catch the exception and recycle
+// the task object after its single use.
+RawTask.prototype.call = function () {
+    try {
+        this.task.call();
+    } catch (error) {
+        if (asap.onerror) {
+            // This hook exists purely for testing purposes.
+            // Its name will be periodically randomized to break any code that
+            // depends on its existence.
+            asap.onerror(error);
+        } else {
+            // In a web browser, exceptions are not fatal. However, to avoid
+            // slowing down the queue of pending tasks, we rethrow the error in a
+            // lower priority turn.
+            pendingErrors.push(error);
+            requestErrorThrow();
+        }
+    } finally {
+        this.task = null;
+        freeTasks[freeTasks.length] = this;
     }
 };
 
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-process.version = ''; // empty string to avoid regexp issues
-process.versions = {};
+},{"./raw":93}],93:[function(require,module,exports){
+(function (global){
+"use strict";
+
+// Use the fastest means possible to execute a task in its own turn, with
+// priority over other events including IO, animation, reflow, and redraw
+// events in browsers.
+//
+// An exception thrown by a task will permanently interrupt the processing of
+// subsequent tasks. The higher level `asap` function ensures that if an
+// exception is thrown by a task, that the task queue will continue flushing as
+// soon as possible, but if you use `rawAsap` directly, you are responsible to
+// either ensure that no exceptions are thrown from your task, or to manually
+// call `rawAsap.requestFlush` if an exception is thrown.
+module.exports = rawAsap;
+function rawAsap(task) {
+    if (!queue.length) {
+        requestFlush();
+        flushing = true;
+    }
+    // Equivalent to push, but avoids a function call.
+    queue[queue.length] = task;
+}
+
+var queue = [];
+// Once a flush has been requested, no further calls to `requestFlush` are
+// necessary until the next `flush` completes.
+var flushing = false;
+// `requestFlush` is an implementation-specific method that attempts to kick
+// off a `flush` event as quickly as possible. `flush` will attempt to exhaust
+// the event queue before yielding to the browser's own event loop.
+var requestFlush;
+// The position of the next task to execute in the task queue. This is
+// preserved between calls to `flush` so that it can be resumed if
+// a task throws an exception.
+var index = 0;
+// If a task schedules additional tasks recursively, the task queue can grow
+// unbounded. To prevent memory exhaustion, the task queue will periodically
+// truncate already-completed tasks.
+var capacity = 1024;
+
+// The flush function processes all tasks that have been scheduled with
+// `rawAsap` unless and until one of those tasks throws an exception.
+// If a task throws an exception, `flush` ensures that its state will remain
+// consistent and will resume where it left off when called again.
+// However, `flush` does not make any arrangements to be called again if an
+// exception is thrown.
+function flush() {
+    while (index < queue.length) {
+        var currentIndex = index;
+        // Advance the index before calling the task. This ensures that we will
+        // begin flushing on the next task the task throws an error.
+        index = index + 1;
+        queue[currentIndex].call();
+        // Prevent leaking memory for long chains of recursive calls to `asap`.
+        // If we call `asap` within tasks scheduled by `asap`, the queue will
+        // grow, but to avoid an O(n) walk for every task we execute, we don't
+        // shift tasks off the queue after they have been executed.
+        // Instead, we periodically shift 1024 tasks off the queue.
+        if (index > capacity) {
+            // Manually shift all values starting at the index back to the
+            // beginning of the queue.
+            for (var scan = 0, newLength = queue.length - index; scan < newLength; scan++) {
+                queue[scan] = queue[scan + index];
+            }
+            queue.length -= index;
+            index = 0;
+        }
+    }
+    queue.length = 0;
+    index = 0;
+    flushing = false;
+}
+
+// `requestFlush` is implemented using a strategy based on data collected from
+// every available SauceLabs Selenium web driver worker at time of writing.
+// https://docs.google.com/spreadsheets/d/1mG-5UYGup5qxGdEMWkhP6BWCz053NUb2E1QoUTU16uA/edit#gid=783724593
+
+// Safari 6 and 6.1 for desktop, iPad, and iPhone are the only browsers that
+// have WebKitMutationObserver but not un-prefixed MutationObserver.
+// Must use `global` instead of `window` to work in both frames and web
+// workers. `global` is a provision of Browserify, Mr, Mrs, or Mop.
+var BrowserMutationObserver = global.MutationObserver || global.WebKitMutationObserver;
+
+// MutationObservers are desirable because they have high priority and work
+// reliably everywhere they are implemented.
+// They are implemented in all modern browsers.
+//
+// - Android 4-4.3
+// - Chrome 26-34
+// - Firefox 14-29
+// - Internet Explorer 11
+// - iPad Safari 6-7.1
+// - iPhone Safari 7-7.1
+// - Safari 6-7
+if (typeof BrowserMutationObserver === "function") {
+    requestFlush = makeRequestCallFromMutationObserver(flush);
+
+// MessageChannels are desirable because they give direct access to the HTML
+// task queue, are implemented in Internet Explorer 10, Safari 5.0-1, and Opera
+// 11-12, and in web workers in many engines.
+// Although message channels yield to any queued rendering and IO tasks, they
+// would be better than imposing the 4ms delay of timers.
+// However, they do not work reliably in Internet Explorer or Safari.
+
+// Internet Explorer 10 is the only browser that has setImmediate but does
+// not have MutationObservers.
+// Although setImmediate yields to the browser's renderer, it would be
+// preferrable to falling back to setTimeout since it does not have
+// the minimum 4ms penalty.
+// Unfortunately there appears to be a bug in Internet Explorer 10 Mobile (and
+// Desktop to a lesser extent) that renders both setImmediate and
+// MessageChannel useless for the purposes of ASAP.
+// https://github.com/kriskowal/q/issues/396
+
+// Timers are implemented universally.
+// We fall back to timers in workers in most engines, and in foreground
+// contexts in the following browsers.
+// However, note that even this simple case requires nuances to operate in a
+// broad spectrum of browsers.
+//
+// - Firefox 3-13
+// - Internet Explorer 6-9
+// - iPad Safari 4.3
+// - Lynx 2.8.7
+} else {
+    requestFlush = makeRequestCallFromTimer(flush);
+}
+
+// `requestFlush` requests that the high priority event queue be flushed as
+// soon as possible.
+// This is useful to prevent an error thrown in a task from stalling the event
+// queue if the exception handled by Node.js’s
+// `process.on("uncaughtException")` or by a domain.
+rawAsap.requestFlush = requestFlush;
+
+// To request a high priority event, we induce a mutation observer by toggling
+// the text of a text node between "1" and "-1".
+function makeRequestCallFromMutationObserver(callback) {
+    var toggle = 1;
+    var observer = new BrowserMutationObserver(callback);
+    var node = document.createTextNode("");
+    observer.observe(node, {characterData: true});
+    return function requestCall() {
+        toggle = -toggle;
+        node.data = toggle;
+    };
+}
+
+// The message channel technique was discovered by Malte Ubl and was the
+// original foundation for this library.
+// http://www.nonblocking.io/2011/06/windownexttick.html
+
+// Safari 6.0.5 (at least) intermittently fails to create message ports on a
+// page's first load. Thankfully, this version of Safari supports
+// MutationObservers, so we don't need to fall back in that case.
+
+// function makeRequestCallFromMessageChannel(callback) {
+//     var channel = new MessageChannel();
+//     channel.port1.onmessage = callback;
+//     return function requestCall() {
+//         channel.port2.postMessage(0);
+//     };
+// }
+
+// For reasons explained above, we are also unable to use `setImmediate`
+// under any circumstances.
+// Even if we were, there is another bug in Internet Explorer 10.
+// It is not sufficient to assign `setImmediate` to `requestFlush` because
+// `setImmediate` must be called *by name* and therefore must be wrapped in a
+// closure.
+// Never forget.
+
+// function makeRequestCallFromSetImmediate(callback) {
+//     return function requestCall() {
+//         setImmediate(callback);
+//     };
+// }
+
+// Safari 6.0 has a problem where timers will get lost while the user is
+// scrolling. This problem does not impact ASAP because Safari 6.0 supports
+// mutation observers, so that implementation is used instead.
+// However, if we ever elect to use timers in Safari, the prevalent work-around
+// is to add a scroll event listener that calls for a flush.
+
+// `setTimeout` does not call the passed callback if the delay is less than
+// approximately 7 in web workers in Firefox 8 through 18, and sometimes not
+// even then.
+
+function makeRequestCallFromTimer(callback) {
+    return function requestCall() {
+        // We dispatch a timeout with a specified delay of 0 for engines that
+        // can reliably accommodate that request. This will usually be snapped
+        // to a 4 milisecond delay, but once we're flushing, there's no delay
+        // between events.
+        var timeoutHandle = setTimeout(handleTimer, 0);
+        // However, since this timer gets frequently dropped in Firefox
+        // workers, we enlist an interval handle that will try to fire
+        // an event 20 times per second until it succeeds.
+        var intervalHandle = setInterval(handleTimer, 50);
+
+        function handleTimer() {
+            // Whichever timer succeeds will cancel both timers and
+            // execute the callback.
+            clearTimeout(timeoutHandle);
+            clearInterval(intervalHandle);
+            callback();
+        }
+    };
+}
+
+// This is for `asap.js` only.
+// Its name will be periodically randomized to break any code that depends on
+// its existence.
+rawAsap.makeRequestCallFromTimer = makeRequestCallFromTimer;
+
+// ASAP was originally a nextTick shim included in Q. This was factored out
+// into this ASAP package. It was later adapted to RSVP which made further
+// amendments. These decisions, particularly to marginalize MessageChannel and
+// to capture the MutationObserver implementation in a closure, were integrated
+// back into ASAP proper.
+// https://github.com/tildeio/rsvp.js/blob/cddf7232546a9cf858524b75cde6f9edf72620a7/lib/rsvp/asap.js
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],94:[function(require,module,exports){
+'use strict';
+
+var asap = require('asap/raw');
 
 function noop() {}
 
-process.on = noop;
-process.addListener = noop;
-process.once = noop;
-process.off = noop;
-process.removeListener = noop;
-process.removeAllListeners = noop;
-process.emit = noop;
+// States:
+//
+// 0 - pending
+// 1 - fulfilled with _value
+// 2 - rejected with _value
+// 3 - adopted the state of another promise, _value
+//
+// once the state is no longer pending (0) it is immutable
 
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
-};
+// All `_` prefixed properties will be reduced to `_{random number}`
+// at build time to obfuscate them and discourage their use.
+// We don't use symbols or Object.defineProperty to fully hide them
+// because the performance isn't good enough.
 
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
-};
-process.umask = function() { return 0; };
 
-},{}],93:[function(require,module,exports){
-'use strict';
-
-var asap = require('asap')
-
-module.exports = Promise;
-function Promise(fn) {
-  if (typeof this !== 'object') throw new TypeError('Promises must be constructed via new')
-  if (typeof fn !== 'function') throw new TypeError('not a function')
-  var state = null
-  var value = null
-  var deferreds = []
-  var self = this
-
-  this.then = function(onFulfilled, onRejected) {
-    return new self.constructor(function(resolve, reject) {
-      handle(new Handler(onFulfilled, onRejected, resolve, reject))
-    })
+// to avoid using try/catch inside critical functions, we
+// extract them to here.
+var LAST_ERROR = null;
+var IS_ERROR = {};
+function getThen(obj) {
+  try {
+    return obj.then;
+  } catch (ex) {
+    LAST_ERROR = ex;
+    return IS_ERROR;
   }
-
-  function handle(deferred) {
-    if (state === null) {
-      deferreds.push(deferred)
-      return
-    }
-    asap(function() {
-      var cb = state ? deferred.onFulfilled : deferred.onRejected
-      if (cb === null) {
-        (state ? deferred.resolve : deferred.reject)(value)
-        return
-      }
-      var ret
-      try {
-        ret = cb(value)
-      }
-      catch (e) {
-        deferred.reject(e)
-        return
-      }
-      deferred.resolve(ret)
-    })
-  }
-
-  function resolve(newValue) {
-    try { //Promise Resolution Procedure: https://github.com/promises-aplus/promises-spec#the-promise-resolution-procedure
-      if (newValue === self) throw new TypeError('A promise cannot be resolved with itself.')
-      if (newValue && (typeof newValue === 'object' || typeof newValue === 'function')) {
-        var then = newValue.then
-        if (typeof then === 'function') {
-          doResolve(then.bind(newValue), resolve, reject)
-          return
-        }
-      }
-      state = true
-      value = newValue
-      finale()
-    } catch (e) { reject(e) }
-  }
-
-  function reject(newValue) {
-    state = false
-    value = newValue
-    finale()
-  }
-
-  function finale() {
-    for (var i = 0, len = deferreds.length; i < len; i++)
-      handle(deferreds[i])
-    deferreds = null
-  }
-
-  doResolve(fn, resolve, reject)
 }
 
+function tryCallOne(fn, a) {
+  try {
+    return fn(a);
+  } catch (ex) {
+    LAST_ERROR = ex;
+    return IS_ERROR;
+  }
+}
+function tryCallTwo(fn, a, b) {
+  try {
+    fn(a, b);
+  } catch (ex) {
+    LAST_ERROR = ex;
+    return IS_ERROR;
+  }
+}
 
-function Handler(onFulfilled, onRejected, resolve, reject){
-  this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null
-  this.onRejected = typeof onRejected === 'function' ? onRejected : null
-  this.resolve = resolve
-  this.reject = reject
+module.exports = Promise;
+
+function Promise(fn) {
+  if (typeof this !== 'object') {
+    throw new TypeError('Promises must be constructed via new');
+  }
+  if (typeof fn !== 'function') {
+    throw new TypeError('not a function');
+  }
+  this._45 = 0;
+  this._81 = 0;
+  this._65 = null;
+  this._54 = null;
+  if (fn === noop) return;
+  doResolve(fn, this);
+}
+Promise._10 = null;
+Promise._97 = null;
+Promise._61 = noop;
+
+Promise.prototype.then = function(onFulfilled, onRejected) {
+  if (this.constructor !== Promise) {
+    return safeThen(this, onFulfilled, onRejected);
+  }
+  var res = new Promise(noop);
+  handle(this, new Handler(onFulfilled, onRejected, res));
+  return res;
+};
+
+function safeThen(self, onFulfilled, onRejected) {
+  return new self.constructor(function (resolve, reject) {
+    var res = new Promise(noop);
+    res.then(resolve, reject);
+    handle(self, new Handler(onFulfilled, onRejected, res));
+  });
+};
+function handle(self, deferred) {
+  while (self._81 === 3) {
+    self = self._65;
+  }
+  if (Promise._10) {
+    Promise._10(self);
+  }
+  if (self._81 === 0) {
+    if (self._45 === 0) {
+      self._45 = 1;
+      self._54 = deferred;
+      return;
+    }
+    if (self._45 === 1) {
+      self._45 = 2;
+      self._54 = [self._54, deferred];
+      return;
+    }
+    self._54.push(deferred);
+    return;
+  }
+  handleResolved(self, deferred);
+}
+
+function handleResolved(self, deferred) {
+  asap(function() {
+    var cb = self._81 === 1 ? deferred.onFulfilled : deferred.onRejected;
+    if (cb === null) {
+      if (self._81 === 1) {
+        resolve(deferred.promise, self._65);
+      } else {
+        reject(deferred.promise, self._65);
+      }
+      return;
+    }
+    var ret = tryCallOne(cb, self._65);
+    if (ret === IS_ERROR) {
+      reject(deferred.promise, LAST_ERROR);
+    } else {
+      resolve(deferred.promise, ret);
+    }
+  });
+}
+function resolve(self, newValue) {
+  // Promise Resolution Procedure: https://github.com/promises-aplus/promises-spec#the-promise-resolution-procedure
+  if (newValue === self) {
+    return reject(
+      self,
+      new TypeError('A promise cannot be resolved with itself.')
+    );
+  }
+  if (
+    newValue &&
+    (typeof newValue === 'object' || typeof newValue === 'function')
+  ) {
+    var then = getThen(newValue);
+    if (then === IS_ERROR) {
+      return reject(self, LAST_ERROR);
+    }
+    if (
+      then === self.then &&
+      newValue instanceof Promise
+    ) {
+      self._81 = 3;
+      self._65 = newValue;
+      finale(self);
+      return;
+    } else if (typeof then === 'function') {
+      doResolve(then.bind(newValue), self);
+      return;
+    }
+  }
+  self._81 = 1;
+  self._65 = newValue;
+  finale(self);
+}
+
+function reject(self, newValue) {
+  self._81 = 2;
+  self._65 = newValue;
+  if (Promise._97) {
+    Promise._97(self, newValue);
+  }
+  finale(self);
+}
+function finale(self) {
+  if (self._45 === 1) {
+    handle(self, self._54);
+    self._54 = null;
+  }
+  if (self._45 === 2) {
+    for (var i = 0; i < self._54.length; i++) {
+      handle(self, self._54[i]);
+    }
+    self._54 = null;
+  }
+}
+
+function Handler(onFulfilled, onRejected, promise){
+  this.onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : null;
+  this.onRejected = typeof onRejected === 'function' ? onRejected : null;
+  this.promise = promise;
 }
 
 /**
@@ -10228,253 +10687,133 @@ function Handler(onFulfilled, onRejected, resolve, reject){
  *
  * Makes no guarantees about asynchrony.
  */
-function doResolve(fn, onFulfilled, onRejected) {
+function doResolve(fn, promise) {
   var done = false;
-  try {
-    fn(function (value) {
-      if (done) return
-      done = true
-      onFulfilled(value)
-    }, function (reason) {
-      if (done) return
-      done = true
-      onRejected(reason)
-    })
-  } catch (ex) {
-    if (done) return
-    done = true
-    onRejected(ex)
+  var res = tryCallTwo(fn, function (value) {
+    if (done) return;
+    done = true;
+    resolve(promise, value);
+  }, function (reason) {
+    if (done) return;
+    done = true;
+    reject(promise, reason);
+  })
+  if (!done && res === IS_ERROR) {
+    done = true;
+    reject(promise, LAST_ERROR);
   }
 }
 
-},{"asap":95}],94:[function(require,module,exports){
+},{"asap/raw":93}],95:[function(require,module,exports){
 'use strict';
 
 //This file contains the ES6 extensions to the core Promises/A+ API
 
-var Promise = require('./core.js')
-var asap = require('asap')
+var Promise = require('./core.js');
 
-module.exports = Promise
+module.exports = Promise;
 
 /* Static Functions */
 
-function ValuePromise(value) {
-  this.then = function (onFulfilled) {
-    if (typeof onFulfilled !== 'function') return this
-    return new Promise(function (resolve, reject) {
-      asap(function () {
-        try {
-          resolve(onFulfilled(value))
-        } catch (ex) {
-          reject(ex);
-        }
-      })
-    })
-  }
+var TRUE = valuePromise(true);
+var FALSE = valuePromise(false);
+var NULL = valuePromise(null);
+var UNDEFINED = valuePromise(undefined);
+var ZERO = valuePromise(0);
+var EMPTYSTRING = valuePromise('');
+
+function valuePromise(value) {
+  var p = new Promise(Promise._61);
+  p._81 = 1;
+  p._65 = value;
+  return p;
 }
-ValuePromise.prototype = Promise.prototype
-
-var TRUE = new ValuePromise(true)
-var FALSE = new ValuePromise(false)
-var NULL = new ValuePromise(null)
-var UNDEFINED = new ValuePromise(undefined)
-var ZERO = new ValuePromise(0)
-var EMPTYSTRING = new ValuePromise('')
-
 Promise.resolve = function (value) {
-  if (value instanceof Promise) return value
+  if (value instanceof Promise) return value;
 
-  if (value === null) return NULL
-  if (value === undefined) return UNDEFINED
-  if (value === true) return TRUE
-  if (value === false) return FALSE
-  if (value === 0) return ZERO
-  if (value === '') return EMPTYSTRING
+  if (value === null) return NULL;
+  if (value === undefined) return UNDEFINED;
+  if (value === true) return TRUE;
+  if (value === false) return FALSE;
+  if (value === 0) return ZERO;
+  if (value === '') return EMPTYSTRING;
 
   if (typeof value === 'object' || typeof value === 'function') {
     try {
-      var then = value.then
+      var then = value.then;
       if (typeof then === 'function') {
-        return new Promise(then.bind(value))
+        return new Promise(then.bind(value));
       }
     } catch (ex) {
       return new Promise(function (resolve, reject) {
-        reject(ex)
-      })
+        reject(ex);
+      });
     }
   }
-
-  return new ValuePromise(value)
-}
+  return valuePromise(value);
+};
 
 Promise.all = function (arr) {
-  var args = Array.prototype.slice.call(arr)
+  var args = Array.prototype.slice.call(arr);
 
   return new Promise(function (resolve, reject) {
-    if (args.length === 0) return resolve([])
-    var remaining = args.length
+    if (args.length === 0) return resolve([]);
+    var remaining = args.length;
     function res(i, val) {
-      try {
-        if (val && (typeof val === 'object' || typeof val === 'function')) {
-          var then = val.then
+      if (val && (typeof val === 'object' || typeof val === 'function')) {
+        if (val instanceof Promise && val.then === Promise.prototype.then) {
+          while (val._81 === 3) {
+            val = val._65;
+          }
+          if (val._81 === 1) return res(i, val._65);
+          if (val._81 === 2) reject(val._65);
+          val.then(function (val) {
+            res(i, val);
+          }, reject);
+          return;
+        } else {
+          var then = val.then;
           if (typeof then === 'function') {
-            then.call(val, function (val) { res(i, val) }, reject)
-            return
+            var p = new Promise(then.bind(val));
+            p.then(function (val) {
+              res(i, val);
+            }, reject);
+            return;
           }
         }
-        args[i] = val
-        if (--remaining === 0) {
-          resolve(args);
-        }
-      } catch (ex) {
-        reject(ex)
+      }
+      args[i] = val;
+      if (--remaining === 0) {
+        resolve(args);
       }
     }
     for (var i = 0; i < args.length; i++) {
-      res(i, args[i])
+      res(i, args[i]);
     }
-  })
-}
+  });
+};
 
 Promise.reject = function (value) {
-  return new Promise(function (resolve, reject) { 
+  return new Promise(function (resolve, reject) {
     reject(value);
   });
-}
+};
 
 Promise.race = function (values) {
-  return new Promise(function (resolve, reject) { 
+  return new Promise(function (resolve, reject) {
     values.forEach(function(value){
       Promise.resolve(value).then(resolve, reject);
-    })
+    });
   });
-}
+};
 
 /* Prototype Methods */
 
 Promise.prototype['catch'] = function (onRejected) {
   return this.then(null, onRejected);
-}
-
-},{"./core.js":93,"asap":95}],95:[function(require,module,exports){
-(function (process){
-
-// Use the fastest possible means to execute a task in a future turn
-// of the event loop.
-
-// linked list of tasks (single, with head node)
-var head = {task: void 0, next: null};
-var tail = head;
-var flushing = false;
-var requestFlush = void 0;
-var isNodeJS = false;
-
-function flush() {
-    /* jshint loopfunc: true */
-
-    while (head.next) {
-        head = head.next;
-        var task = head.task;
-        head.task = void 0;
-        var domain = head.domain;
-
-        if (domain) {
-            head.domain = void 0;
-            domain.enter();
-        }
-
-        try {
-            task();
-
-        } catch (e) {
-            if (isNodeJS) {
-                // In node, uncaught exceptions are considered fatal errors.
-                // Re-throw them synchronously to interrupt flushing!
-
-                // Ensure continuation if the uncaught exception is suppressed
-                // listening "uncaughtException" events (as domains does).
-                // Continue in next event to avoid tick recursion.
-                if (domain) {
-                    domain.exit();
-                }
-                setTimeout(flush, 0);
-                if (domain) {
-                    domain.enter();
-                }
-
-                throw e;
-
-            } else {
-                // In browsers, uncaught exceptions are not fatal.
-                // Re-throw them asynchronously to avoid slow-downs.
-                setTimeout(function() {
-                   throw e;
-                }, 0);
-            }
-        }
-
-        if (domain) {
-            domain.exit();
-        }
-    }
-
-    flushing = false;
-}
-
-if (typeof process !== "undefined" && process.nextTick) {
-    // Node.js before 0.9. Note that some fake-Node environments, like the
-    // Mocha test runner, introduce a `process` global without a `nextTick`.
-    isNodeJS = true;
-
-    requestFlush = function () {
-        process.nextTick(flush);
-    };
-
-} else if (typeof setImmediate === "function") {
-    // In IE10, Node.js 0.9+, or https://github.com/NobleJS/setImmediate
-    if (typeof window !== "undefined") {
-        requestFlush = setImmediate.bind(window, flush);
-    } else {
-        requestFlush = function () {
-            setImmediate(flush);
-        };
-    }
-
-} else if (typeof MessageChannel !== "undefined") {
-    // modern browsers
-    // http://www.nonblocking.io/2011/06/windownexttick.html
-    var channel = new MessageChannel();
-    channel.port1.onmessage = flush;
-    requestFlush = function () {
-        channel.port2.postMessage(0);
-    };
-
-} else {
-    // old browsers
-    requestFlush = function () {
-        setTimeout(flush, 0);
-    };
-}
-
-function asap(task) {
-    tail = tail.next = {
-        task: task,
-        domain: isNodeJS && process.domain,
-        next: null
-    };
-
-    if (!flushing) {
-        flushing = true;
-        requestFlush();
-    }
 };
 
-module.exports = asap;
-
-
-}).call(this,require('_process'))
-},{"_process":92}],96:[function(require,module,exports){
+},{"./core.js":94}],96:[function(require,module,exports){
 // should work in any browser without browserify
 
 if (typeof Promise.prototype.done !== 'function') {
@@ -10499,5 +10838,5 @@ if (typeof Promise === 'undefined') {
 
 require('./polyfill-done.js');
 
-},{"./lib/core.js":93,"./lib/es6-extensions.js":94,"./polyfill-done.js":96,"asap":95}]},{},[2])(2)
+},{"./lib/core.js":94,"./lib/es6-extensions.js":95,"./polyfill-done.js":96,"asap":92}]},{},[2])(2)
 });
