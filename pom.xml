@@ -248,8 +248,8 @@
     </issueManagement>
     
     <scm>
-        <connection>scm:git:git@github.com:jessebluemr/lesscss-java.git</connection>
-        <developerConnection>scm:git:git@github.com:jessebluemr/lesscss-java.git</developerConnection>
+        <!--<connection>scm:git:git@github.com:jessebluemr/lesscss-java.git</connection>-->
+        <connection>scm:git:https://github.com/jessebluemr/lesscss-java.git</connection>        
         <url>http://github.com/jessebluemr/lesscss-java</url>
         <tag>HEAD</tag>
     </scm>
