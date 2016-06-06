@@ -258,12 +258,12 @@
         <repository>
             <id>ct-dist-releases-file</id>
             <name>repository for sdi.suite releases</name>
-            <url>file://///vsdev0860.dev.esri-de.com/repo-internal/releases</url>
+            <url>${release.deployment.url}</url>
         </repository>
         <snapshotRepository>
             <id>ct-dist-snapshots-file</id>
             <name>repository for sdi.suite snapshots</name>
-            <url>file://///vsdev0860.dev.esri-de.com/repo-internal/snapshots</url>
+            <url>${snapshot.deployment.url}</url>
         </snapshotRepository>
     </distributionManagement>
 
